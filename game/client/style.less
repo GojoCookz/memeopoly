@@ -246,9 +246,13 @@ h3 {
   .dice-set {
     cursor: pointer;
     position: absolute;
-    top: 200px;
-    left: 300px;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    gap: 10px;
+    z-index: 15;
+    filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.3));
   }
 
   .board-token {
@@ -261,13 +265,15 @@ h3 {
 
 .board {
   user-select: none;
-  background-color: rgba(15, 25, 35, 0.9);
+  background: linear-gradient(135deg, rgba(10, 15, 30, 0.95) 0%, rgba(15, 25, 45, 0.95) 50%, rgba(10, 20, 35, 0.95) 100%);
   width: @boardWidth;
   height: @boardWidth;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 40px rgba(56, 189, 248, 0.08), inset 0 0 80px rgba(56, 189, 248, 0.03);
-  border: 2px solid rgba(56, 189, 248, 0.2);
-  border-radius: 4px;
-  transform: none;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 60px rgba(56, 189, 248, 0.12), 0 0 120px rgba(139, 92, 246, 0.06), inset 0 0 80px rgba(56, 189, 248, 0.04);
+  border: 2px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  transform: perspective(1200px) rotateX(2deg);
+  transition: transform 0.4s ease;
+  animation: board-glow 4s ease-in-out infinite alternate;
   display: grid;
   grid-template-columns: repeat(24, 1fr);
   grid-template-rows: repeat(24, 1fr);
@@ -596,64 +602,77 @@ h3 {
 }
 
 
-.dice {
-  border: 1px solid @borderGlow;
-  border-radius: 6px;
-  margin: 20px;
-  background: linear-gradient(145deg, #1a2040 0%, #0f1525 100%);
-  width: @diceSize;
-  height: @diceSize;
+@dice3dSize: 60px;
+
+.dice3d-wrapper {
+  width: @dice3dSize;
+  height: @dice3dSize;
+  perspective: 300px;
+  margin: 10px;
+  cursor: pointer;
+
+  &.landed .dice3d-cube {
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+  }
+
+  &.rolling .dice3d-cube {
+    animation: dice-tumble 0.8s cubic-bezier(.36, .07, .19, .97) infinite;
+  }
+}
+
+.dice3d-cube {
+  width: 100%;
+  height: 100%;
   position: relative;
-  box-shadow: 0 4px 0 rgba(0,0,0,0.5), 0 6px 16px rgba(0,0,0,0.4), 0 0 12px rgba(56, 189, 248, 0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+  transform-style: preserve-3d;
+}
 
-  &.rolling {
-    animation: shake 1s cubic-bezier(.36, .07, .19, .97) both infinite;
-  }
+.dice3d-face {
+  position: absolute;
+  width: @dice3dSize;
+  height: @dice3dSize;
+  border-radius: 8px;
+  border: 2px solid rgba(56, 189, 248, 0.7);
+  background: linear-gradient(145deg, #2a3a6a 0%, #1a2550 100%);
+  box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.15), 0 0 12px rgba(56, 189, 248, 0.3);
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  padding: 6px;
+  box-sizing: border-box;
 
-  .dot {
-    width: @diceDotSize;
-    height: @diceDotSize;
-    background-color: @accentCyan;
-    border-radius: @diceDotSize;
+  &.front  { transform: translateZ(calc(@dice3dSize / 2)); }
+  &.back   { transform: rotateX(180deg) translateZ(calc(@dice3dSize / 2)); }
+  &.right  { transform: rotateY(90deg) translateZ(calc(@dice3dSize / 2)); }
+  &.left   { transform: rotateY(-90deg) translateZ(calc(@dice3dSize / 2)); }
+  &.top    { transform: rotateX(90deg) translateZ(calc(@dice3dSize / 2)); }
+  &.bottom { transform: rotateX(-90deg) translateZ(calc(@dice3dSize / 2)); }
+}
 
-    position: absolute;
+.dice3d-dot {
+  width: 11px;
+  height: 11px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px @accentCyan, 0 0 16px rgba(56, 189, 248, 0.5);
+  position: absolute;
 
-    &.middle-center {
-      top: calc(50% - @diceDotSize / 2);
-      left: calc(50% - @diceDotSize / 2);
-    }
+  &.center      { top: calc(50% - 4.5px); left: calc(50% - 4.5px); }
+  &.top-left    { top: 20%; left: 20%; }
+  &.top-right   { top: 20%; right: 20%; }
+  &.mid-left    { top: calc(50% - 4.5px); left: 20%; }
+  &.mid-right   { top: calc(50% - 4.5px); right: 20%; }
+  &.bottom-left { bottom: 20%; left: 20%; }
+  &.bottom-right{ bottom: 20%; right: 20%; }
+}
 
-    &.middle-left {
-      top: calc(50% - @diceDotSize / 2);
-      left: calc(25% - @diceDotSize / 2);
-    }
-
-    &.middle-right {
-      top: calc(50% - @diceDotSize / 2);
-      right: calc(25% - @diceDotSize / 2);
-    }
-
-    &.top-left {
-      top: calc(25% - @diceDotSize / 2);
-      left: calc(25% - @diceDotSize / 2);
-    }
-
-    &.top-right {
-      top: calc(25% - @diceDotSize / 2);
-      right: calc(25% - @diceDotSize / 2);
-    }
-
-    &.bottom-left {
-      bottom: calc(25% - @diceDotSize / 2);
-      left: calc(25% - @diceDotSize / 2);
-    }
-
-    &.bottom-right {
-      bottom: calc(25% - @diceDotSize / 2);
-      right: calc(25% - @diceDotSize / 2);
-    }
-
-  }
+@keyframes dice-tumble {
+  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  25%  { transform: rotateX(270deg) rotateY(180deg) rotateZ(90deg); }
+  50%  { transform: rotateX(540deg) rotateY(360deg) rotateZ(180deg); }
+  75%  { transform: rotateX(810deg) rotateY(540deg) rotateZ(270deg); }
+  100% { transform: rotateX(1080deg) rotateY(720deg) rotateZ(360deg); }
 }
 
 .dialog {
@@ -1246,21 +1265,25 @@ h3 {
 }
 
 @keyframes shake {
-  10%, 90% {
-    transform: translate3d(-1px, 0, 0);
-  }
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
 
-  20%, 80% {
-    transform: translate3d(2px, 0, 0);
-  }
+@keyframes board-glow {
+  0% { box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 60px rgba(56, 189, 248, 0.10), 0 0 120px rgba(139, 92, 246, 0.04); border-color: rgba(56, 189, 248, 0.25); }
+  100% { box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 80px rgba(56, 189, 248, 0.18), 0 0 140px rgba(139, 92, 246, 0.10); border-color: rgba(139, 92, 246, 0.35); }
+}
 
-  30%, 50%, 70% {
-    transform: translate3d(-4px, 0, 0);
-  }
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(56, 189, 248, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.6), 0 0 40px rgba(56, 189, 248, 0.2); }
+}
 
-  40%, 60% {
-    transform: translate3d(4px, 0, 0);
-  }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 // Room Lobby

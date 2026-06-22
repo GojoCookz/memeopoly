@@ -151,7 +151,7 @@ class GameService {
                     {
                         position: 12,
                         owner: "1",
-                        title: "Hash Power Co",
+                        title: "Fartcoin HQ",
                         type: "electricity",
                         description: "If one Utility is owned, rent is 4 times the amount shown on dice. If both Utilities are owned rent is 10 times amount shown on dice.",
                         price: 150,
@@ -161,7 +161,7 @@ class GameService {
                         position: 28,
                         owner: "1",
                         type: "water",
-                        title: "Bandwidth Works",
+                        title: "Popcat Server",
                         description: "If one Utility is owned, rent is 4 times the amount shown on dice. If both Utilities are owned rent is 10 times amount shown on dice.",
                         price: 150,
                         mortgaged: false
@@ -171,7 +171,7 @@ class GameService {
                     {
                         position: 5,
                         owner: "1",
-                        title: "Solana Station",
+                        title: "Pump.fun Station",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -184,7 +184,7 @@ class GameService {
                     {
                         position: 15,
                         owner: "1",
-                        title: "Ethereum Terminal",
+                        title: "Raydium Terminal",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -197,7 +197,7 @@ class GameService {
                     {
                         position: 25,
                         owner: "1",
-                        title: "Polygon Hub",
+                        title: "Jupiter Hub",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -210,7 +210,7 @@ class GameService {
                     {
                         position: 35,
                         owner: "1",
-                        title: "Avalanche Depot",
+                        title: "DexScreener Depot",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -225,7 +225,7 @@ class GameService {
                     {
                         position: 37,
                         owner: "1",
-                        title: "Solana Skyway",
+                        title: "$WIF Skyway",
                         color: "#1a2596",
                         rent: {
                             "Rent": "$35",
@@ -248,7 +248,7 @@ class GameService {
                     {
                         position: 39,
                         owner: "1",
-                        title: "Bitcoin Palace",
+                        title: "$MEMO Palace",
                         color: "#1a2596",
                         rent: {
                             "Rent": "$50",
@@ -271,7 +271,7 @@ class GameService {
                     {
                         position: 31,
                         owner: "1",
-                        title: "Whale Street",
+                        title: "$PEPE Street",
                         color: "#008e04",
                         rent: {
                             "Rent": "$26",
@@ -294,7 +294,7 @@ class GameService {
                     {
                         position: 34,
                         owner: "1",
-                        title: "Staking Station",
+                        title: "$SHIB Station",
                         color: "#008e04",
                         rent: {
                             "Rent": "$28",
@@ -317,7 +317,7 @@ class GameService {
                     {
                         position: 32,
                         owner: "1",
-                        title: "HODL Highway",
+                        title: "$FLOKI Highway",
                         color: "#008e04",
                         rent: {
                             "Rent": "$26",
@@ -340,7 +340,7 @@ class GameService {
                     {
                         position: 26,
                         owner: "1",
-                        title: "Pump Station",
+                        title: "$BONK Station",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$22",
@@ -363,7 +363,7 @@ class GameService {
                     {
                         position: 27,
                         owner: "1",
-                        title: "Moon Market",
+                        title: "$DOGE Market",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$22",
@@ -386,7 +386,7 @@ class GameService {
                     {
                         position: 29,
                         owner: "1",
-                        title: "Diamond Hands Plaza",
+                        title: "$WIF Plaza",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$24",
@@ -409,7 +409,7 @@ class GameService {
                     {
                         position: 23,
                         owner: "1",
-                        title: "Blockchain Blvd",
+                        title: "$FARTCOIN Blvd",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$18",
@@ -432,7 +432,7 @@ class GameService {
                     {
                         position: 21,
                         owner: "1",
-                        title: "Crypto Exchange",
+                        title: "$BONK Exchange",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$18",
@@ -455,7 +455,7 @@ class GameService {
                     {
                         position: 24,
                         owner: "1",
-                        title: "Mining Rig Square",
+                        title: "$PIPPIN Square",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$20",
@@ -477,7 +477,7 @@ class GameService {
                     },
                     {
                         position: 16,
-                        title: "NFT Gallery",
+                        title: "$GOAT Gallery",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -500,7 +500,7 @@ class GameService {
                     },
                     {
                         position: 18,
-                        title: "Metaverse Mall",
+                        title: "$BOME Mall",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -523,7 +523,7 @@ class GameService {
                     },
                     {
                         position: 19,
-                        title: "Token Bridge",
+                        title: "$AI16Z Bridge",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -546,7 +546,7 @@ class GameService {
                     },
                     {
                         position: 13,
-                        title: "Liquidity Pool Rd",
+                        title: "$MEW Road",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -569,7 +569,7 @@ class GameService {
                     },
                     {
                         position: 11,
-                        title: "DeFi Boulevard",
+                        title: "$POPCAT Blvd",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -592,7 +592,7 @@ class GameService {
                     },
                     {
                         position: 14,
-                        title: "Yield Farm Ave",
+                        title: "$PENGU Place",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -615,7 +615,7 @@ class GameService {
                     },
                     {
                         position: 6,
-                        title: "Ethereum Plaza",
+                        title: "$PNUT Park",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -638,7 +638,7 @@ class GameService {
                     },
                     {
                         position: 8,
-                        title: "Smart Contract St",
+                        title: "$CHILLGUY St",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -661,7 +661,7 @@ class GameService {
                     },
                     {
                         position: 9,
-                        title: "Gas Fee Lane",
+                        title: "$TROLL Lane",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -684,7 +684,7 @@ class GameService {
                     },
                     {
                         position: 1,
-                        title: "Satoshi Lane",
+                        title: "$USELESS Ave",
                         color: "#614901",
                         owner: "1",
                         rent: {
@@ -707,7 +707,7 @@ class GameService {
                     },
                     {
                         position: 3,
-                        title: "Genesis Block Ave",
+                        title: "$67 Boulevard",
                         color: "#614901",
                         owner: "1",
                         rent: {
@@ -733,40 +733,40 @@ class GameService {
             cards: {
                 chance: {
                     available: shuffle([
-                        "Airdrop! Collect $200 in $MEMO tokens",
-                        "Your meme coin pumped! Collect $100",
-                        "Rugpulled! Go directly to jail. Do not pass go. Do not collect $200",
-                        "Staking rewards mature, collect $100",
-                        "Tax loss harvesting refund, collect $20",
-                        "Gas fees. Pay $50",
-                        "Impermanent loss. Pay $100",
-                        "Collect $25 audit fee",
+                        "MASSIVE AIRDROP! Collect $200 in $MEMO tokens",
+                        "Your bag pumped 1000x! Collect $100",
+                        "RUGGED! Go directly to jail. Do not pass GO. Do not collect $200",
+                        "Staking rewards hit different. Collect $100",
+                        "Tax loss harvesting season. Collect $20",
+                        "Solana gas fees lmao. Pay $50",
+                        "Impermanent loss hit you. Pay $100",
+                        "KOL shilled you a 100x. Collect $25",
                         OUT_OF_JAIL,
-                        "Flash loan exploit in your favour. Collect $200",
-                        "Your token launched! Collect $10 from each player",
-                        "Vesting schedule complete. Collect $100",
-                        "From liquidation profits, you get $50",
-                        "Smart contract audit fees. Pay $50"
+                        "MEV bot in your favour! Collect $200",
+                        "You launched a coin on pump.fun! Collect $10 from each player",
+                        "Diamond hands paid off. Collect $100",
+                        "Liquidation cascade profits. Collect $50",
+                        "Fartcoin transaction fee. Pay $50 (worth it)"
                     ]),
                     used: [],
                 },
                 community: {
                     available: shuffle([
                         OUT_OF_JAIL,
-                        "Rugpulled! Go directly to jail. Do not pass go. Do not collect $200",
-                        "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent to which they are otherwise entitled",
-                        "Advance to Bitcoin Palace",
-                        "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent to which they are otherwise entitled",
-                        "You have been elected DAO chairman, pay each player $50",
-                        "Advance to Mining Rig Square. If you pass go collect $200",
-                        "Your DeFi yield matures, collect $150",
-                        "Advance to go, collect $200 in $MEMO tokens",
-                        "Take a trip to Solana Station, if you pass go collect $200",
-                        "Slippage fee, pay $15",
-                        "Advance to the nearest utility, if UNOWNED, you may buy it from the bank. If OWNED, roll the dice and pay the owner 10 times your roll",
-                        "Protocol maintenance on all your property: For each house pay $25, for each hotel pay $100",
-                        "Go back 3 spaces",
-                        "Advance to DeFi Boulevard, if you pass go collect $200"
+                        "RUGGED by dev! Go directly to jail. Do not pass GO. Do not collect $200",
+                        "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent",
+                        "Advance to $MEMO Palace",
+                        "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent",
+                        "Elected DAO chairman! Pay each player $50",
+                        "Advance to $PIPPIN Square. If you pass GO collect $200",
+                        "Your DeFi yield matures. Collect $150",
+                        "Advance to GO, collect $200 in $MEMO tokens",
+                        "Take a trip to Pump.fun Station, if you pass GO collect $200",
+                        "Slippage on Jupiter. Pay $15",
+                        "Advance to the nearest utility. If UNOWNED, you may buy it from the bank. If OWNED, roll the dice and pay 10x your roll",
+                        "Maintenance on all your degens: For each house pay $25, for each hotel pay $100",
+                        "Paper hands! Go back 3 spaces",
+                        "Advance to $POPCAT Blvd, if you pass GO collect $200"
                     ]),
                     used: []
 

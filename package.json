@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "Memeopoly - A meme-powered multiplayer board game with $MEMO tokens",
   "scripts": {
-    "build": "cd game/client && npm install && npm run build",
+    "build": "cd game/client && npm install --include=dev && npm run build",
     "start": "cd game && HTTP=true node server/server.js",
-    "postinstall": "cd game && npm install"
+    "postinstall": "cd game && npm install --include=dev"
   },
   "engines": {
     "node": ">=18.0.0"

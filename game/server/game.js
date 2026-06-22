@@ -25,6 +25,102 @@ function shuffle(array) {
 class GameService {
     logs = [];
     chat = [];
+    referrals = {};
+    cpolyBalances = {};
+    dailyLogins = {};
+    colorSetBonusClaimed = {};
+
+    awardCpoly = (playerId, amount, reason) => {
+        if (!this.cpolyBalances[playerId]) this.cpolyBalances[playerId] = 0;
+        this.cpolyBalances[playerId] += amount;
+
+        const referrerId = this.getReferrer(playerId);
+        if (referrerId && referrerId !== playerId) {
+            const bonus = Math.floor(amount * 0.1);
+            if (!this.cpolyBalances[referrerId]) this.cpolyBalances[referrerId] = 0;
+            this.cpolyBalances[referrerId] += bonus;
+        }
+
+        const player = this.getPlayerFromId(playerId);
+        const name = player ? player.name : playerId;
+        this.sendLog(name + ' earned ' + amount + ' $MEMO: ' + reason);
+        this.broadcastCpoly();
+    }
+
+    broadcastCpoly = () => {
+        try {
+            this.ws.broadcast(JSON.stringify({
+                type: 'cpoly',
+                balances: this.cpolyBalances,
+                referrals: this.referrals
+            }));
+        } catch(e) {}
+    }
+
+    registerReferral = (playerId, referrerCode) => {
+        if (!referrerCode || !playerId) return;
+        const referrerPlayer = this.game.players.find(p => {
+            let hash = 0;
+            for (let i = 0; i < p.name.length; i++)
+                hash = ((hash << 5) - hash + p.name.charCodeAt(i)) | 0;
+            const code = p.name.slice(0, 4).toUpperCase() + Math.abs(hash).toString(36).slice(0, 4).toUpperCase();
+            return code === referrerCode;
+        });
+        if (!referrerPlayer || referrerPlayer.id === playerId) return;
+
+        if (!this.referrals[referrerPlayer.id]) this.referrals[referrerPlayer.id] = { count: 0, referred: [], earnings: 0 };
+        if (this.referrals[referrerPlayer.id].referred.indexOf(playerId) !== -1) return;
+
+        this.referrals[referrerPlayer.id].count++;
+        this.referrals[referrerPlayer.id].referred.push(playerId);
+
+        const milestones = { 5: 500, 10: 1500, 25: 5000 };
+        const count = this.referrals[referrerPlayer.id].count;
+        if (milestones[count]) {
+            this.awardCpoly(referrerPlayer.id, milestones[count], count + ' referral milestone');
+            this.referrals[referrerPlayer.id].earnings += milestones[count];
+        }
+
+        this.sendLog(referrerPlayer.name + ' got a new referral! Total: ' + count);
+        this.broadcastCpoly();
+    }
+
+    getReferrer = (playerId) => {
+        for (const rid of Object.keys(this.referrals)) {
+            if (this.referrals[rid].referred.indexOf(playerId) !== -1) return rid;
+        }
+        return null;
+    }
+
+    handleDailyLogin = (playerId) => {
+        const today = new Date().toISOString().slice(0, 10);
+        if (!this.dailyLogins[playerId]) this.dailyLogins[playerId] = { lastDate: null, streak: 0 };
+        const dl = this.dailyLogins[playerId];
+        if (dl.lastDate === today) return;
+
+        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        dl.streak = (dl.lastDate === yesterday) ? dl.streak + 1 : 1;
+        dl.lastDate = today;
+        this.awardCpoly(playerId, 25 * dl.streak, 'daily login streak x' + dl.streak);
+    }
+
+    checkColorSetBonus = (playerId) => {
+        const colors = {};
+        this.game.deeds.regular.forEach(d => {
+            if (!colors[d.color]) colors[d.color] = { total: 0, owned: 0 };
+            colors[d.color].total++;
+            if (d.owner == playerId) colors[d.color].owned++;
+        });
+        for (const color of Object.keys(colors)) {
+            if (colors[color].owned === colors[color].total && colors[color].total > 0) {
+                const key = playerId + '_' + color;
+                if (!this.colorSetBonusClaimed[key]) {
+                    this.colorSetBonusClaimed[key] = true;
+                    this.awardCpoly(playerId, 200, 'completed color set');
+                }
+            }
+        }
+    }
     newGame = () => {
         fs.writeFileSync(this.logFile, '');
         fs.writeFileSync(this.chatFile, '');
@@ -55,7 +151,7 @@ class GameService {
                     {
                         position: 12,
                         owner: "1",
-                        title: "Electric Company",
+                        title: "Hash Power Co",
                         type: "electricity",
                         description: "If one Utility is owned, rent is 4 times the amount shown on dice. If both Utilities are owned rent is 10 times amount shown on dice.",
                         price: 150,
@@ -65,7 +161,7 @@ class GameService {
                         position: 28,
                         owner: "1",
                         type: "water",
-                        title: "Water works",
+                        title: "Bandwidth Works",
                         description: "If one Utility is owned, rent is 4 times the amount shown on dice. If both Utilities are owned rent is 10 times amount shown on dice.",
                         price: 150,
                         mortgaged: false
@@ -75,7 +171,7 @@ class GameService {
                     {
                         position: 5,
                         owner: "1",
-                        title: "King's Cross Station",
+                        title: "Solana Station",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -88,7 +184,7 @@ class GameService {
                     {
                         position: 15,
                         owner: "1",
-                        title: "Marylebone Station",
+                        title: "Ethereum Terminal",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -101,7 +197,7 @@ class GameService {
                     {
                         position: 25,
                         owner: "1",
-                        title: "Fenchurch St. Station",
+                        title: "Polygon Hub",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -114,7 +210,7 @@ class GameService {
                     {
                         position: 35,
                         owner: "1",
-                        title: "Liverpool St. Station",
+                        title: "Avalanche Depot",
                         rent: {
                             "Rent": '$25',
                             "If 2 Stations are Owned": "$50",
@@ -129,7 +225,7 @@ class GameService {
                     {
                         position: 37,
                         owner: "1",
-                        title: "Park Lane",
+                        title: "Solana Skyway",
                         color: "#1a2596",
                         rent: {
                             "Rent": "$35",
@@ -152,7 +248,7 @@ class GameService {
                     {
                         position: 39,
                         owner: "1",
-                        title: "MayFair",
+                        title: "Bitcoin Palace",
                         color: "#1a2596",
                         rent: {
                             "Rent": "$50",
@@ -175,7 +271,7 @@ class GameService {
                     {
                         position: 31,
                         owner: "1",
-                        title: "Regent Street",
+                        title: "Whale Street",
                         color: "#008e04",
                         rent: {
                             "Rent": "$26",
@@ -198,7 +294,7 @@ class GameService {
                     {
                         position: 34,
                         owner: "1",
-                        title: "Bond Street",
+                        title: "Staking Station",
                         color: "#008e04",
                         rent: {
                             "Rent": "$28",
@@ -221,7 +317,7 @@ class GameService {
                     {
                         position: 32,
                         owner: "1",
-                        title: "Oxford Street",
+                        title: "HODL Highway",
                         color: "#008e04",
                         rent: {
                             "Rent": "$26",
@@ -244,7 +340,7 @@ class GameService {
                     {
                         position: 26,
                         owner: "1",
-                        title: "Leicester Square",
+                        title: "Pump Station",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$22",
@@ -267,7 +363,7 @@ class GameService {
                     {
                         position: 27,
                         owner: "1",
-                        title: "Coventry Street",
+                        title: "Moon Market",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$22",
@@ -290,7 +386,7 @@ class GameService {
                     {
                         position: 29,
                         owner: "1",
-                        title: "Picadilly",
+                        title: "Diamond Hands Plaza",
                         color: "#d6d105",
                         rent: {
                             "Rent": "$24",
@@ -313,7 +409,7 @@ class GameService {
                     {
                         position: 23,
                         owner: "1",
-                        title: "Fleet Street",
+                        title: "Blockchain Blvd",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$18",
@@ -336,7 +432,7 @@ class GameService {
                     {
                         position: 21,
                         owner: "1",
-                        title: "Strand",
+                        title: "Crypto Exchange",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$18",
@@ -359,7 +455,7 @@ class GameService {
                     {
                         position: 24,
                         owner: "1",
-                        title: "Trafalgar Square",
+                        title: "Mining Rig Square",
                         color: "#9f0108",
                         rent: {
                             "Rent": "$20",
@@ -381,7 +477,7 @@ class GameService {
                     },
                     {
                         position: 16,
-                        title: "Bow Street",
+                        title: "NFT Gallery",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -404,7 +500,7 @@ class GameService {
                     },
                     {
                         position: 18,
-                        title: "Marlborough Street",
+                        title: "Metaverse Mall",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -427,7 +523,7 @@ class GameService {
                     },
                     {
                         position: 19,
-                        title: "Vine Street",
+                        title: "Token Bridge",
                         color: "#d68000",
                         owner: "1",
                         rent: {
@@ -450,7 +546,7 @@ class GameService {
                     },
                     {
                         position: 13,
-                        title: "WhiteHall",
+                        title: "Liquidity Pool Rd",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -473,7 +569,7 @@ class GameService {
                     },
                     {
                         position: 11,
-                        title: "Pall Mall",
+                        title: "DeFi Boulevard",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -496,7 +592,7 @@ class GameService {
                     },
                     {
                         position: 14,
-                        title: "Northumber land Avenue",
+                        title: "Yield Farm Ave",
                         color: "#930086",
                         owner: "1",
                         rent: {
@@ -519,7 +615,7 @@ class GameService {
                     },
                     {
                         position: 6,
-                        title: "The Angel, Islington",
+                        title: "Ethereum Plaza",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -542,7 +638,7 @@ class GameService {
                     },
                     {
                         position: 8,
-                        title: "Euston Road",
+                        title: "Smart Contract St",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -565,7 +661,7 @@ class GameService {
                     },
                     {
                         position: 9,
-                        title: "Pentonville Road",
+                        title: "Gas Fee Lane",
                         color: "#6ba9a5",
                         owner: "1",
                         rent: {
@@ -588,7 +684,7 @@ class GameService {
                     },
                     {
                         position: 1,
-                        title: "Old Kent Road",
+                        title: "Satoshi Lane",
                         color: "#614901",
                         owner: "1",
                         rent: {
@@ -611,7 +707,7 @@ class GameService {
                     },
                     {
                         position: 3,
-                        title: "WhiteChapel Road",
+                        title: "Genesis Block Ave",
                         color: "#614901",
                         owner: "1",
                         rent: {
@@ -637,40 +733,40 @@ class GameService {
             cards: {
                 chance: {
                     available: shuffle([
-                        "Advance to go collect $200",
-                        "You inherit $100",
-                        "Go to Jail, Go directly to jail. Do not pass go. Do not collect $200",
-                        "Holiday fund matures, collect $100",
-                        "Income tax refund, collect $20",
-                        "School fees. Pay $50",
-                        "Hospital Fees. Pay $100",
-                        "Collect $25 consultancy fee",
+                        "Airdrop! Collect $200 in $MEMO tokens",
+                        "Your meme coin pumped! Collect $100",
+                        "Rugpulled! Go directly to jail. Do not pass go. Do not collect $200",
+                        "Staking rewards mature, collect $100",
+                        "Tax loss harvesting refund, collect $20",
+                        "Gas fees. Pay $50",
+                        "Impermanent loss. Pay $100",
+                        "Collect $25 audit fee",
                         OUT_OF_JAIL,
-                        "Bank error in your favour. Collect $200",
-                        "It's your birthday collect $10 from each player",
-                        "Life insurance matures. Collect $100",
-                        "From sale of stock, you get $50",
-                        "Doctor's fees. Pay $50"
+                        "Flash loan exploit in your favour. Collect $200",
+                        "Your token launched! Collect $10 from each player",
+                        "Vesting schedule complete. Collect $100",
+                        "From liquidation profits, you get $50",
+                        "Smart contract audit fees. Pay $50"
                     ]),
                     used: [],
                 },
                 community: {
                     available: shuffle([
                         OUT_OF_JAIL,
-                        "Go to Jail, Go directly to jail. Do not pass go. Do not collect $200",
+                        "Rugpulled! Go directly to jail. Do not pass go. Do not collect $200",
                         "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent to which they are otherwise entitled",
-                        "Advance to MayFair",
+                        "Advance to Bitcoin Palace",
                         "Advance to the next station. If UNOWNED, you may buy it from the bank. If OWNED, pay the owner twice the rent to which they are otherwise entitled",
-                        "You have been elected chairman of the board, pay each player $50",
-                        "Advance to Trafalgar Square. If you pass go collect $200",
-                        "Your building loan matures, collect $150",
-                        "Advance to go, collect $200",
-                        "Take a trip to king's cross station, if you pass go collect $200",
-                        "Speeding fine, pay $15",
+                        "You have been elected DAO chairman, pay each player $50",
+                        "Advance to Mining Rig Square. If you pass go collect $200",
+                        "Your DeFi yield matures, collect $150",
+                        "Advance to go, collect $200 in $MEMO tokens",
+                        "Take a trip to Solana Station, if you pass go collect $200",
+                        "Slippage fee, pay $15",
                         "Advance to the nearest utility, if UNOWNED, you may buy it from the bank. If OWNED, roll the dice and pay the owner 10 times your roll",
-                        "Make general repairs on all you property: For each house pay $25, for each hotel pay $100",
+                        "Protocol maintenance on all your property: For each house pay $25, for each hotel pay $100",
                         "Go back 3 spaces",
-                        "Advance to Pall Mall, if you pass go collect $200"
+                        "Advance to DeFi Boulevard, if you pass go collect $200"
                     ]),
                     used: []
 
@@ -730,6 +826,18 @@ class GameService {
                 break;
             case 'transferOutOfJailCard':
                 this.transferOutOfJailCard(player, params.to);
+                break;
+            case 'registerReferral':
+                this.registerReferral(from, params.referrerCode);
+                break;
+            case 'claimDailyLogin':
+                this.handleDailyLogin(from);
+                break;
+            case 'passedGo':
+                this.awardCpoly(from, 50, 'passed GO');
+                break;
+            case 'getCpolyState':
+                this.broadcastCpoly();
                 break;
         }
 
@@ -992,6 +1100,8 @@ class GameService {
 
             this.sendLog(this.getPlayerFromId(from).name + " transferred " + title + " from " + owner.name + " to " + toUser.name);
 
+            if (toUser.id !== 1) this.checkColorSetBonus(toUser.id);
+
         } else {
             this.sendLog(title + " can't be sent to its current owner");
         }
@@ -1021,6 +1131,7 @@ class GameService {
         }
 
         this.game.players.push(player);
+        this.handleDailyLogin(player.id);
 
         this.transferNotes(1, player.id, {
             1: 5,
@@ -1130,12 +1241,12 @@ class GameService {
 
     }
 
-    logFile = './static/logs.txt';
-    chatFile = './static/chat.txt';
+    logFile = require('path').join(__dirname, '..', 'static', 'logs.txt');
+    chatFile = require('path').join(__dirname, '..', 'static', 'chat.txt');
     game = this.newGame();
     ws = undefined;
 
 }
 
-exports
-    .gameService = new GameService();
+exports.GameService = GameService;
+exports.gameService = new GameService();

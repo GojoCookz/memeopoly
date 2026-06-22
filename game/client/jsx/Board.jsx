@@ -29,27 +29,33 @@ export default class Board extends React.Component {
         gameService.rollDie();
     }
 
-    dragStart = (e, player) => {
+    getClientXY = (e) => {
+        if (e.touches && e.touches.length > 0) return {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        if (e.changedTouches && e.changedTouches.length > 0) return {x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY};
+        return {x: e.clientX, y: e.clientY};
+    }
 
+    dragStart = (e, player) => {
         e = e || window.event;
         e.preventDefault();
         dragging = e.currentTarget;
         draggedPlayer = player.id;
-        // get the mouse cursor position at startup:
-        pos3 = e.clientX;
-        pos4 = e.clientY;
+        const pt = this.getClientXY(e);
+        pos3 = pt.x;
+        pos4 = pt.y;
         document.onmouseup = (e) => this.dragStopped(e, player);
-        // call a function whenever the cursor moves:
         document.onmousemove = (e) => this.dragging(e, player);
+        document.ontouchend = (e) => this.dragStopped(e, player);
+        document.ontouchmove = (e) => this.dragging(e, player);
     }
     dragging = (e, player) => {
         e = e || window.event;
         e.preventDefault();
-        // calculate the new cursor position:
-        pos1 = pos3 - e.clientX;
-        pos2 = pos4 - e.clientY;
-        pos3 = e.clientX;
-        pos4 = e.clientY;
+        const pt = this.getClientXY(e);
+        pos1 = pos3 - pt.x;
+        pos2 = pos4 - pt.y;
+        pos3 = pt.x;
+        pos4 = pt.y;
         // set the element's new position:
         dragging.style.top = (dragging.offsetTop - pos2) + "px";
         dragging.style.left = (dragging.offsetLeft - pos1) + "px";
@@ -70,9 +76,10 @@ export default class Board extends React.Component {
         const y = ("" + dragging.style.left).replace("px", "");
         const x = ("" + dragging.style.top).replace("px", "");
         gameService.setPlayerPosition(player.id, x, y);
-        // stop moving when mouse button is released:
         document.onmouseup = null;
         document.onmousemove = null;
+        document.ontouchend = null;
+        document.ontouchmove = null;
         lastUpdate = 0;
         gameService.sendToWs('moveFinished', {target: player.name});
     }
@@ -87,8 +94,9 @@ export default class Board extends React.Component {
                         const y = dragging && p.id === draggedPlayer ? dragging.style.left : p.y + 'px';
                         return <div key={p.id} className="board-token"
                                     onMouseDown={(e) => this.dragStart(e, p)}
+                                    onTouchStart={(e) => this.dragStart(e, p)}
                                     style={{top: x, left: y}}>
-                            <Token selected={p.id === gameService.currentPlayer} token={p.token}/>
+                            <Token selected={p.id === gameService.currentPlayer} token={p.token} customImage={p.customImage} color={p.tokenColor}/>
                         </div>
                     }
                 )}

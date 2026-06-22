@@ -17,7 +17,7 @@ export default class Players extends React.Component {
                 {players.map(p => <div key={p.id}
                                        onClick={() => this.setState({selected: p.id})}
                                        className={"player "}>
-                    <Token token={p.token} selected={p.id === selected}/>
+                    <Token token={p.token} selected={p.id === selected} customImage={p.customImage} color={p.tokenColor}/>
                     {p.name}
                 </div>)}
             </div>

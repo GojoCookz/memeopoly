@@ -1,17 +1,17 @@
 import React from 'react';
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {faCar} from "@fortawesome/free-solid-svg-icons";
+import {faDog} from "@fortawesome/free-solid-svg-icons";
 
 export default class FreeParking extends React.Component {
 
     render() {
         return (<div className={"free-parking corner-card  grid-area-20 " + this.props.boardPos}>
             <div className="container">
-                <div>Free</div>
+                <div>Free Parking</div>
                 <div className="icon">
-                    <FontAwesomeIcon icon={faCar}/>
+                    <FontAwesomeIcon icon={faDog}/>
                 </div>
-                <div>Parking</div>
+                <div>wif dog</div>
             </div>
         </div>);
     }

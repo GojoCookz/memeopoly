@@ -4,6 +4,27 @@ class GameService {
     game = null;
     ws = null;
     currentPlayer = null;
+    currentRoom = null;
+    onRoomJoined = null;
+    onRoomList = null;
+    onAuthResult = null;
+    leaderboardData = null;
+    onVaultState = null;
+    onTokenBalance = null;
+
+    joinRoom = (roomId) => {
+        this.currentPlayer = null;
+        this.ws.send(JSON.stringify({type: 'joinRoom', roomId: roomId}));
+    }
+
+    listRooms = () => {
+        this.ws.send(JSON.stringify({type: 'listRooms'}));
+    }
+
+    leaveRoom = () => {
+        this.currentRoom = null;
+        this.currentPlayer = null;
+    }
     getStreet = function (position, game) {
         return game.deeds.regular.find(s => s.position == position);
     }
@@ -108,6 +129,22 @@ class GameService {
 
     sendToWs = (command, object) => {
         this.ws.send(JSON.stringify({type: 'game', command: command, params: object, from: this.currentPlayer}));
+    }
+
+    registerReferral = (referrerCode) => {
+        this.sendToWs('registerReferral', {referrerCode: referrerCode});
+    }
+
+    claimDailyLogin = () => {
+        this.sendToWs('claimDailyLogin', {});
+    }
+
+    passedGo = () => {
+        this.sendToWs('passedGo', {});
+    }
+
+    getCpolyState = () => {
+        this.sendToWs('getCpolyState', {});
     }
 
     toggleMortgageProperty = (property, type) => {

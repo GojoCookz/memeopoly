@@ -11,7 +11,7 @@ export default class Settings extends React.Component {
     saveGame = () => {
 
         const now = new Date();
-        const fileName = 'MonopolyGame_' + now.getFullYear() + '-' + now.getMonth() + '-' + now.getDay() + '_' + now.getHours() + now.getMinutes() + now.getSeconds() + '.json';
+        const fileName = 'MemeopolyGame_' + now.getFullYear() + '-' + now.getMonth() + '-' + now.getDay() + '_' + now.getHours() + now.getMinutes() + now.getSeconds() + '.json';
 
         console.log('game file name', fileName);
 
@@ -69,6 +69,7 @@ export default class Settings extends React.Component {
                 <li onClick={this.saveGame}>Save game</li>
                 <li onClick={this.loadGame}>Load game</li>
                 <li onClick={this.props.showHelp}>Show help dialog</li>
+                <li onClick={() => { localStorage.removeItem('memeopoly_tutorial_done'); this.props.showHelp(); this.setState({showSettings: false}); }}>How to Earn tutorial</li>
             </ul>
             }
         </div>);

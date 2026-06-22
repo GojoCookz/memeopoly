@@ -105,4 +105,7 @@ dist
 /.idea/azureSettings.xml
 /.idea/
 /game/client/.npmrc
+/game/client/.parcel-cache/
 /game/static/
+!/game/static/tokens/
+/game/data/

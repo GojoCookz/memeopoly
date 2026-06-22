@@ -106,6 +106,6 @@ dist
 /.idea/
 /game/client/.npmrc
 /game/client/.parcel-cache/
-/game/static/
+# /game/static/ — committed for Railway deployment
 !/game/static/tokens/
 /game/data/

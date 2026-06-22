@@ -856,6 +856,15 @@ class GameService {
             case 'payJailFine':
                 this.payJailFine(from);
                 break;
+            case 'addNPC':
+                this.addNPC(params.difficulty);
+                break;
+            case 'bid':
+                this.handleBid(from, params.amount);
+                break;
+            case 'readyToRoll':
+                this.handleReadyToRoll(from);
+                break;
         }
 
         return {type: 'game', game: this.game};
@@ -1247,8 +1256,12 @@ class GameService {
             this.sendLog(player + " tried to roll but it's not their turn!");
             return;
         }
-        if (times === 0 && this.game.turnPhase !== 'rolling') {
+        if (times === 0 && this.game.turnPhase !== 'rolling' && this.game.turnPhase !== 'pre-roll') {
             return;
+        }
+        // Auto-transition from pre-roll to rolling
+        if (times === 0 && this.game.turnPhase === 'pre-roll') {
+            this.game.turnPhase = 'rolling';
         }
 
         if (times === 0 && this.game.rollingDice === true) {
@@ -1356,11 +1369,25 @@ class GameService {
 
     startTurn = (playerId) => {
         this.game.currentTurn = playerId;
-        this.game.turnPhase = 'rolling';
         this.game.doublesCount = 0;
         const player = this.getPlayerFromId(playerId);
         this.sendLog("It's " + player.name + "'s turn!");
-        this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId}));
+
+        // NPC auto-play: skip pre-roll phase
+        if (player.isNPC) {
+            this.game.turnPhase = 'rolling';
+            this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId}));
+            this.sendToWs();
+            if (player.inJail) {
+                this.npcPayJailFine(playerId);
+            }
+            this.processNPCTurn(playerId);
+            return;
+        }
+
+        // Human players get pre-roll phase to build before rolling
+        this.game.turnPhase = 'pre-roll';
+        this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId, phase: 'pre-roll'}));
         this.sendToWs();
     }
 
@@ -1388,6 +1415,8 @@ class GameService {
 
     pendingBuyOffer = null;
     buyOfferTimeout = null;
+    auctionState = null;
+    auctionTimeout = null;
 
     handleLanding = (player, position) => {
         // Check all deed types
@@ -1409,6 +1438,12 @@ class GameService {
                     position: deed.position
                 }));
                 this.sendLog(deed.title + " is available for $" + deed.price);
+
+                // NPC auto-buy decision
+                if (player.isNPC) {
+                    this.processNPCBuyDecision(player.id);
+                }
+
                 // 15 second timeout
                 this.buyOfferTimeout = setTimeout(() => {
                     if (this.pendingBuyOffer && this.pendingBuyOffer.playerId === player.id) {
@@ -1602,11 +1637,142 @@ class GameService {
         clearTimeout(this.buyOfferTimeout);
 
         const player = this.getPlayerFromId(playerId);
-        this.sendLog(player.name + " declined to buy " + this.pendingBuyOffer.deed.title);
+        const deed = this.pendingBuyOffer.deed;
+        const deedType = this.pendingBuyOffer.deedType;
+        this.sendLog(player.name + " declined to buy " + deed.title);
         this.pendingBuyOffer = null;
+
+        // Start auction per official Monopoly rules
+        this.startAuction(deed, deedType);
+    }
+
+    // ========== AUCTION ==========
+
+    startAuction = (deed, deedType) => {
+        const eligiblePlayers = this.game.players.filter(p => p.id !== 1);
+        if (eligiblePlayers.length === 0) {
+            this.game.turnPhase = 'done';
+            this.sendToWs();
+            this.endTurn();
+            return;
+        }
+
+        this.auctionState = {
+            deed: deed,
+            deedType: deedType,
+            highestBid: 0,
+            highestBidder: null,
+            timeRemaining: 10
+        };
+
+        this.sendLog("AUCTION: " + deed.title + " is up for auction! Bidding starts now.");
+        this.ws.broadcast(JSON.stringify({
+            type: 'auctionStart',
+            property: deed.title,
+            price: deed.price,
+            position: deed.position,
+            deedType: deedType
+        }));
+
+        this.auctionTimeout = setTimeout(() => this.endAuction(), 10000);
+        this.auctionTickInterval = setInterval(() => {
+            if (this.auctionState) {
+                this.auctionState.timeRemaining--;
+                if (this.auctionState.timeRemaining <= 0) {
+                    clearInterval(this.auctionTickInterval);
+                }
+            }
+        }, 1000);
+    }
+
+    handleBid = (playerId, amount) => {
+        if (!this.auctionState) return;
+
+        const player = this.getPlayerFromId(playerId);
+        if (!player) return;
+
+        amount = parseInt(amount, 10);
+        if (isNaN(amount) || amount <= 0) return;
+
+        const balance = this.calculateNotesSum(player.notes);
+        if (amount > balance) {
+            this.sendLog(player.name + " can't afford a bid of $" + amount);
+            return;
+        }
+
+        if (amount <= this.auctionState.highestBid) {
+            this.sendLog(player.name + " bid $" + amount + " but the current bid is $" + this.auctionState.highestBid);
+            return;
+        }
+
+        this.auctionState.highestBid = amount;
+        this.auctionState.highestBidder = playerId;
+        this.auctionState.timeRemaining = 10;
+
+        // Reset timer on each new bid
+        clearTimeout(this.auctionTimeout);
+        this.auctionTimeout = setTimeout(() => this.endAuction(), 10000);
+
+        this.sendLog(player.name + " bid $" + amount + " for " + this.auctionState.deed.title);
+        this.ws.broadcast(JSON.stringify({
+            type: 'auctionBid',
+            playerId: playerId,
+            playerName: player.name,
+            amount: amount,
+            property: this.auctionState.deed.title,
+            timeRemaining: 10
+        }));
+    }
+
+    endAuction = () => {
+        clearTimeout(this.auctionTimeout);
+        if (this.auctionTickInterval) clearInterval(this.auctionTickInterval);
+
+        if (!this.auctionState) return;
+
+        const {deed, deedType, highestBid, highestBidder} = this.auctionState;
+
+        if (highestBidder && highestBid > 0) {
+            const winner = this.getPlayerFromId(highestBidder);
+            this.autoTransferMoney(highestBidder, 1, highestBid);
+            deed.owner = highestBidder;
+            this.sendLog("AUCTION WON: " + winner.name + " bought " + deed.title + " for $" + highestBid);
+            this.ws.broadcast(JSON.stringify({
+                type: 'propertyBought',
+                playerId: highestBidder,
+                playerName: winner.name,
+                property: deed.title,
+                price: highestBid
+            }));
+            if (deedType === 'regular') this.checkColorSetBonus(highestBidder);
+        } else {
+            this.sendLog("AUCTION: No bids for " + deed.title + ". Property stays with the bank.");
+        }
+
+        this.ws.broadcast(JSON.stringify({
+            type: 'auctionEnd',
+            property: deed.title,
+            winnerId: highestBidder,
+            winnerName: highestBidder ? this.getPlayerFromId(highestBidder).name : null,
+            amount: highestBid
+        }));
+
+        this.auctionState = null;
         this.game.turnPhase = 'done';
         this.sendToWs();
         this.endTurn();
+    }
+
+    // ========== PRE-ROLL BUILDING ==========
+
+    handleReadyToRoll = (playerId) => {
+        if (this.game.currentTurn !== playerId) return;
+        if (this.game.turnPhase !== 'pre-roll') return;
+
+        this.game.turnPhase = 'rolling';
+        const player = this.getPlayerFromId(playerId);
+        this.sendLog(player.name + " is ready to roll!");
+        this.sendToWs();
     }
 
     // ========== JAIL ==========
@@ -1856,6 +2022,144 @@ class GameService {
             this.game.turnPhase = 'done';
             this.sendToWs();
             this.endTurn();
+        }
+    }
+
+    // ========== NPC SYSTEM ==========
+
+    NPC_NAMES = [
+        "Rug Pullinator", "Degen Chad", "Paper Hands Pete", "Diamond Hands Dave",
+        "Whale Watcher", "MEV Bot Mike", "Ser Pump-a-Lot", "Anon Andy",
+        "Bag Holder Bill", "Moon Boy Max", "Sniper Sally", "FOMO Frank"
+    ];
+
+    npcTimers = {};
+
+    addNPC = (difficulty = 'medium') => {
+        const usedNames = this.game.players.map(p => p.name);
+        const available = this.NPC_NAMES.filter(n => !usedNames.includes(n));
+        const name = available.length > 0
+            ? available[Math.floor(Math.random() * available.length)]
+            : 'NPC Bot ' + Math.floor(Math.random() * 1000);
+
+        const tokens = ['robot', 'cog', 'bolt', 'microchip', 'skull-crossbones', 'ghost'];
+        const usedTokens = this.game.players.map(p => p.token);
+        const availableTokens = tokens.filter(t => !usedTokens.includes(t));
+        const token = availableTokens.length > 0
+            ? availableTokens[Math.floor(Math.random() * availableTokens.length)]
+            : tokens[Math.floor(Math.random() * tokens.length)];
+
+        const npcId = 'npc_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+        const player = {
+            id: npcId,
+            name: name,
+            token: token,
+            isNPC: true,
+            npcDifficulty: difficulty
+        };
+
+        this.addNewPlayer(player);
+        this.sendLog(name + ' (NPC - ' + difficulty + ') has joined the game!');
+    }
+
+    processNPCTurn = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.isNPC) return;
+
+        const difficulty = player.npcDifficulty || 'medium';
+
+        // Medium and Hard mode: build houses before rolling
+        if (difficulty === 'hard' || difficulty === 'medium') {
+            this.npcBuildHouses(player);
+        }
+
+        // Auto roll dice after delay
+        this.npcTimers[playerId] = setTimeout(() => {
+            if (this.game.currentTurn === playerId && this.game.turnPhase === 'rolling') {
+                this.rollDice(0, this.randomInt(10) + 5, playerId);
+            }
+        }, 2000 + Math.random() * 1000);
+    }
+
+    processNPCBuyDecision = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.isNPC) return;
+        if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+
+        const difficulty = player.npcDifficulty || 'medium';
+        const deed = this.pendingBuyOffer.deed;
+        const balance = this.calculateNotesSum(player.notes);
+
+        setTimeout(() => {
+            if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+
+            let shouldBuy = false;
+
+            if (balance < deed.price) {
+                shouldBuy = false;
+            } else if (difficulty === 'easy') {
+                shouldBuy = Math.random() < 0.5;
+            } else if (difficulty === 'medium') {
+                shouldBuy = true;
+            } else if (difficulty === 'hard') {
+                // Always buy, but prioritize railroads and orange/red
+                shouldBuy = true;
+                // Keep cash reserve of $200 for rent payments
+                if (balance - deed.price < 200 && !this.isHighPriorityProperty(deed)) {
+                    shouldBuy = false;
+                }
+            }
+
+            if (shouldBuy) {
+                this.handleBuyProperty(playerId);
+            } else {
+                this.handleDeclineProperty(playerId);
+            }
+        }, 2000 + Math.random() * 1000);
+    }
+
+    isHighPriorityProperty = (deed) => {
+        // Railroads
+        const railPositions = [5, 15, 25, 35];
+        if (railPositions.includes(deed.position)) return true;
+        // Orange (#d68000) and Red (#9f0108) color sets
+        if (deed.color === '#d68000' || deed.color === '#9f0108') return true;
+        return false;
+    }
+
+    npcBuildHouses = (player) => {
+        const ownedDeeds = this.game.deeds.regular.filter(d => d.owner === player.id);
+        for (const deed of ownedDeeds) {
+            if (this.canBuyHouse(deed, player) && deed.houses < 4 && deed.hotel === 0) {
+                const costStr = deed.cost["House"];
+                const cost = parseInt(("" + costStr).replace('$', '').replace(' each', ''), 10) || 50;
+                const balance = this.calculateNotesSum(player.notes);
+                if (balance >= cost + 100) {
+                    this.addHouse(deed.title, player);
+                }
+            }
+            // Try hotel if 4 houses
+            if (deed.houses === 4 && deed.hotel === 0) {
+                const costStr = deed.cost["Hotel"];
+                const cost = parseInt(("" + costStr).replace('$', '').replace(' each', ''), 10) || 50;
+                const balance = this.calculateNotesSum(player.notes);
+                if (balance >= cost + 100) {
+                    this.addHotel(deed.title, player);
+                }
+            }
+        }
+    }
+
+    npcPayJailFine = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.isNPC || !player.inJail) return;
+        const difficulty = player.npcDifficulty || 'medium';
+        // Hard mode always pays to get out immediately
+        if (difficulty === 'hard') {
+            const balance = this.calculateNotesSum(player.notes);
+            if (balance >= 50) {
+                this.payJailFine(playerId);
+            }
         }
     }
 

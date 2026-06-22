@@ -18,16 +18,108 @@ import {faInbox, faQuestion} from "@fortawesome/free-solid-svg-icons";
 
 let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0, dragging = null, draggedPlayer;
 let lastUpdate = 0;
+
+// Board dimensions: 950px, 24-column grid
+// Corners = 3 columns = 118.75px, regular spaces = 2 columns = 79.17px
+const BOARD_SIZE = 950;
+const CORNER_SIZE = (3 / 24) * BOARD_SIZE; // ~118.75px
+const CARD_SIZE = (2 / 24) * BOARD_SIZE;   // ~79.17px
+const TOKEN_SIZE = 40;
+
+function getTokenPosition(boardPosition, playerIndex = 0) {
+    // Returns {x (top), y (left)} pixel coordinates for a board position 0-39
+    // Offsets for multiple tokens on the same space
+    const offsets = [
+        {dx: 0, dy: 0},
+        {dx: 20, dy: 0},
+        {dx: 0, dy: 20},
+        {dx: 20, dy: 20},
+        {dx: 10, dy: -15},
+        {dx: -10, dy: 10},
+    ];
+    const offset = offsets[playerIndex % offsets.length];
+
+    // Center of corner = CORNER_SIZE / 2, center of card slot
+    // Token center offset to align with top-left of token div
+    const halfToken = TOKEN_SIZE / 2;
+
+    let x, y; // x = top, y = left (matching the existing convention)
+
+    const pos = boardPosition % 40;
+
+    if (pos === 0) {
+        // GO: bottom-right corner
+        x = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+        y = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+    } else if (pos >= 1 && pos <= 9) {
+        // Bottom row: positions 1-9, right to left
+        // pos 1 is next to GO (right side), pos 9 is next to Jail (left side)
+        const slotIndex = 9 - pos; // 0=pos9 (leftmost), 8=pos1 (rightmost)
+        y = CORNER_SIZE + slotIndex * CARD_SIZE + CARD_SIZE / 2 - halfToken;
+        x = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+    } else if (pos === 10) {
+        // Jail: bottom-left corner
+        x = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+        y = CORNER_SIZE / 2 - halfToken;
+    } else if (pos >= 11 && pos <= 19) {
+        // Left column: positions 11-19, bottom to top
+        const slotIndex = 19 - pos; // 0=pos19 (topmost), 8=pos11 (bottommost)
+        x = CORNER_SIZE + slotIndex * CARD_SIZE + CARD_SIZE / 2 - halfToken;
+        y = CORNER_SIZE / 2 - halfToken;
+    } else if (pos === 20) {
+        // Free Parking: top-left corner
+        x = CORNER_SIZE / 2 - halfToken;
+        y = CORNER_SIZE / 2 - halfToken;
+    } else if (pos >= 21 && pos <= 29) {
+        // Top row: positions 21-29, left to right
+        const slotIndex = pos - 21; // 0=pos21 (leftmost), 8=pos29 (rightmost)
+        y = CORNER_SIZE + slotIndex * CARD_SIZE + CARD_SIZE / 2 - halfToken;
+        x = CORNER_SIZE / 2 - halfToken;
+    } else if (pos === 30) {
+        // Go To Jail: top-right corner
+        x = CORNER_SIZE / 2 - halfToken;
+        y = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+    } else if (pos >= 31 && pos <= 39) {
+        // Right column: positions 31-39, top to bottom
+        const slotIndex = pos - 31; // 0=pos31 (topmost), 8=pos39 (bottommost)
+        x = CORNER_SIZE + slotIndex * CARD_SIZE + CARD_SIZE / 2 - halfToken;
+        y = BOARD_SIZE - CORNER_SIZE / 2 - halfToken;
+    } else {
+        x = BOARD_SIZE / 2 - halfToken;
+        y = BOARD_SIZE / 2 - halfToken;
+    }
+
+    return {
+        x: Math.round(x + (offset.dx || 0)),
+        y: Math.round(y + (offset.dy || 0))
+    };
+}
+
 export default class Board extends React.Component {
 
     constructor(props) {
         super(props);
-        this.state = {};
+        this.state = {
+            dragOverrides: {} // playerId -> {x, y} for manually dragged tokens
+        };
+    }
+
+    clearDragOverride = (playerId) => {
+        this.setState(prev => {
+            const overrides = {...prev.dragOverrides};
+            delete overrides[playerId];
+            return {dragOverrides: overrides};
+        });
     }
 
     rollDice = () => {
         if (gameService.game && gameService.game.currentTurn && gameService.game.currentTurn !== gameService.currentPlayer) {
             return; // Not your turn
+        }
+        // In pre-roll phase, clicking dice sends readyToRoll (which auto-transitions to rolling on server)
+        if (gameService.game && gameService.game.turnPhase === 'pre-roll') {
+            gameService.readyToRoll();
+            return;
         }
         gameService.rollDie();
     }
@@ -74,11 +166,17 @@ export default class Board extends React.Component {
     }
 
     dragStopped = (e, player) => {
-        console.log('no more dragging', draggedPlayer);
         draggedPlayer = null;
         const y = ("" + dragging.style.left).replace("px", "");
         const x = ("" + dragging.style.top).replace("px", "");
         gameService.setPlayerPosition(player.id, x, y);
+        // Store drag override so the token stays where the user placed it
+        this.setState(prev => ({
+            dragOverrides: {
+                ...prev.dragOverrides,
+                [player.id]: {x: parseFloat(x), y: parseFloat(y)}
+            }
+        }));
         document.onmouseup = null;
         document.onmousemove = null;
         document.ontouchend = null;
@@ -91,11 +189,36 @@ export default class Board extends React.Component {
         if (this.props.game) {
             const game = this.props.game;
             const players = this.props.game.players.filter(p => p.id !== 1);
+            // Group players by position for stacking offsets
+            const positionCounts = {};
+            players.forEach(p => {
+                const pos = p.position != null ? p.position : 0;
+                if (!positionCounts[pos]) positionCounts[pos] = [];
+                positionCounts[pos].push(p.id);
+            });
             return (<div className="board-container">
                 {players.map(p => {
-                        const x = dragging && p.id === draggedPlayer ? dragging.style.top : p.x + 'px';
-                        const y = dragging && p.id === draggedPlayer ? dragging.style.left : p.y + 'px';
-                        return <div key={p.id} className="board-token"
+                        let x, y;
+                        if (dragging && p.id === draggedPlayer) {
+                            // Currently being dragged
+                            x = dragging.style.top;
+                            y = dragging.style.left;
+                        } else if (this.state.dragOverrides[p.id] && p.position == null) {
+                            // Manual drag override, no server position
+                            x = this.state.dragOverrides[p.id].x + 'px';
+                            y = this.state.dragOverrides[p.id].y + 'px';
+                        } else {
+                            // Auto-position from board position
+                            const pos = p.position != null ? p.position : 0;
+                            const playersAtPos = positionCounts[pos] || [p.id];
+                            const indexAtPos = playersAtPos.indexOf(p.id);
+                            const coords = getTokenPosition(pos, indexAtPos);
+                            x = coords.x + 'px';
+                            y = coords.y + 'px';
+                        }
+                        const isBeingDragged = dragging && p.id === draggedPlayer;
+                        return <div key={p.id}
+                                    className={"board-token" + (isBeingDragged ? " dragging" : "")}
                                     onMouseDown={(e) => this.dragStart(e, p)}
                                     onTouchStart={(e) => this.dragStart(e, p)}
                                     style={{top: x, left: y}}>
@@ -103,7 +226,10 @@ export default class Board extends React.Component {
                         </div>
                     }
                 )}
-                <div className={"dice-set" + (game.currentTurn === gameService.currentPlayer && game.turnPhase === 'rolling' ? " dice-your-turn" : "")} onClick={this.rollDice}>
+                <div className={"dice-set" + (game.currentTurn === gameService.currentPlayer && (game.turnPhase === 'rolling' || game.turnPhase === 'pre-roll') ? " dice-your-turn" : "") + (game.currentTurn === gameService.currentPlayer && game.turnPhase === 'pre-roll' ? " dice-pre-roll" : "")} onClick={this.rollDice}>
+                    {game.currentTurn === gameService.currentPlayer && game.turnPhase === 'pre-roll' && (
+                        <div className="pre-roll-label">BUILD OR CLICK TO ROLL</div>
+                    )}
                     <Dice diceValue={this.props.game.dice[0]} rolling={this.props.game.rollingDice}/>
                     <Dice diceValue={this.props.game.dice[1]} rolling={this.props.game.rollingDice}/>
                 </div>

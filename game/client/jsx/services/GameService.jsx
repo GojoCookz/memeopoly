@@ -170,6 +170,18 @@ class GameService {
         this.sendToWs('payJailFine', {});
     }
 
+    placeBid = (amount) => {
+        this.sendToWs('bid', {amount: amount});
+    }
+
+    readyToRoll = () => {
+        this.sendToWs('readyToRoll', {});
+    }
+
+    addNPC = (difficulty) => {
+        this.sendToWs('addNPC', {difficulty: difficulty});
+    }
+
     isMyTurn = () => {
         return this.game && this.game.currentTurn === this.currentPlayer;
     }

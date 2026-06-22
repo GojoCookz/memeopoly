@@ -283,6 +283,11 @@ h3 {
     position: absolute;
     z-index: 20;
     filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6));
+    transition: top 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    &.dragging {
+      transition: none;
+    }
   }
 
 }
@@ -631,16 +636,16 @@ h3 {
 .dice3d-wrapper {
   width: @dice3dSize;
   height: @dice3dSize;
-  perspective: 400px;
+  perspective: 600px;
   margin: 10px;
   cursor: pointer;
 
   &.landed .dice3d-cube {
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+    transition: transform 0.6s ease-out;
   }
 
   &.rolling .dice3d-cube {
-    animation: dice-tumble 0.8s cubic-bezier(.36, .07, .19, .97) infinite;
+    animation: dice-tumble 1s ease-in-out infinite;
   }
 }
 
@@ -665,6 +670,7 @@ h3 {
   justify-content: center;
   padding: 6px;
   box-sizing: border-box;
+  backface-visibility: hidden;
 
   &.front  { transform: translateZ(calc(@dice3dSize / 2)); }
   &.back   { transform: rotateX(180deg) translateZ(calc(@dice3dSize / 2)); }
@@ -692,11 +698,50 @@ h3 {
 }
 
 @keyframes dice-tumble {
-  0%   { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-  25%  { transform: rotateX(270deg) rotateY(180deg) rotateZ(90deg); }
-  50%  { transform: rotateX(540deg) rotateY(360deg) rotateZ(180deg); }
-  75%  { transform: rotateX(810deg) rotateY(540deg) rotateZ(270deg); }
-  100% { transform: rotateX(1080deg) rotateY(720deg) rotateZ(360deg); }
+  0%   { transform: rotateX(0deg) rotateY(0deg); }
+  50%  { transform: rotateX(360deg) rotateY(180deg); }
+  100% { transform: rotateX(720deg) rotateY(360deg); }
+}
+
+// Dice skin variants
+.dice-skin-classic .dice3d-face {
+  background: linear-gradient(145deg, #f5f5f5 0%, #d4d4d4 100%);
+  border-color: rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.05), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.dice-skin-classic .dice3d-dot {
+  background: #1a1a1a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.dice-skin-fire .dice3d-face {
+  background: linear-gradient(145deg, #ff4500 0%, #8b0000 100%);
+  border-color: rgba(255, 165, 0, 0.8);
+  box-shadow: inset 0 0 20px rgba(255, 100, 0, 0.3), 0 0 12px rgba(255, 69, 0, 0.5);
+}
+.dice-skin-fire .dice3d-dot {
+  background: #ffdd00;
+  box-shadow: 0 0 10px #ff8c00, 0 0 20px rgba(255, 140, 0, 0.6), 0 0 4px #fff;
+}
+
+.dice-skin-gold .dice3d-face {
+  background: linear-gradient(145deg, #ffd700 0%, #b8860b 100%);
+  border-color: rgba(255, 223, 0, 0.8);
+  box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.3), 0 0 12px rgba(218, 165, 32, 0.5);
+}
+.dice-skin-gold .dice3d-dot {
+  background: #2a1a00;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.dice-skin-phantom .dice3d-face {
+  background: linear-gradient(145deg, #4b0082 0%, #1a0033 100%);
+  border-color: rgba(138, 43, 226, 0.7);
+  box-shadow: inset 0 0 20px rgba(128, 0, 255, 0.2), 0 0 12px rgba(138, 43, 226, 0.4);
+}
+.dice-skin-phantom .dice3d-dot {
+  background: #cc99ff;
+  box-shadow: 0 0 10px #8b00ff, 0 0 20px rgba(138, 43, 226, 0.6), 0 0 4px #e0c0ff;
 }
 
 .dialog {
@@ -2139,6 +2184,52 @@ h3 {
   &:hover { background: rgba(56,189,248,0.25); }
 }
 
+// NPC menu
+.npc-menu-wrapper {
+  position: absolute;
+  top: 58px;
+  right: 90px;
+  z-index: 100;
+}
+
+.npc-add-btn {
+  background: rgba(168,85,247,0.15);
+  border: 1px solid rgba(168,85,247,0.3);
+  color: #a855f7;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+
+  &:hover { background: rgba(168,85,247,0.25); }
+}
+
+.npc-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  background: #1e293b;
+  border: 1px solid rgba(168,85,247,0.3);
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 100px;
+
+  button {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    color: #e2e8f0;
+    padding: 8px 14px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+
+    &:hover { background: rgba(168,85,247,0.2); }
+  }
+}
+
 // Offset game content below nav
 .game, .room-lobby {
   margin-top: 48px;
@@ -2437,6 +2528,110 @@ h3 {
   0%, 100% { transform: translateX(0); }
   10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
   20%, 40%, 60%, 80% { transform: translateX(8px); }
+}
+
+// Auction modal
+.auction-modal {
+  background: linear-gradient(145deg, #1e1b4b 0%, #312e81 100%);
+  border: 3px solid #f59e0b;
+  border-radius: 16px;
+  padding: 30px 40px;
+  text-align: center;
+  min-width: 300px;
+  box-shadow: 0 0 60px rgba(245, 158, 11, 0.4), 0 20px 60px rgba(0,0,0,0.8);
+  animation: slideUp 0.3s ease;
+
+  h3 {
+    color: #f59e0b;
+    font-size: 28px;
+    margin: 0 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+  }
+
+  .auction-property {
+    color: #e0e7ff;
+    font-size: 22px;
+    font-weight: bold;
+    margin: 8px 0;
+  }
+
+  .auction-list-price {
+    color: #a5b4fc;
+    font-size: 14px;
+    margin: 4px 0;
+  }
+
+  .auction-current-bid {
+    color: #fbbf24;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 12px 0;
+  }
+
+  .auction-timer {
+    color: #f87171;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 8px 0 16px;
+  }
+
+  .auction-bid-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+
+    .bid-btn {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: #1e1b4b;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(245, 158, 11, 0.5);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+  }
+}
+
+// Pre-roll phase
+.dice-pre-roll {
+  position: relative;
+}
+
+.pre-roll-label {
+  position: absolute;
+  top: -28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%);
+  color: #e0e7ff;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  letter-spacing: 1px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  animation: pre-roll-pulse 1.5s ease infinite;
+  z-index: 10;
+  pointer-events: none;
+}
+
+@keyframes pre-roll-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
 }
 
 @keyframes slideUp {

@@ -2,6 +2,7 @@ import React from 'react';
 import Board from "./Board";
 
 import {gameService} from "./services/GameService";
+import {soundManager} from "./services/SoundManager";
 import Logs from "./Logs";
 import Video from "./Video";
 import Players from './Players';
@@ -50,7 +51,11 @@ export default class App extends React.Component {
             // Turn system
             buyOffer: null,
             buyOfferTimer: null,
-            showJailedOverlay: false
+            showJailedOverlay: false,
+            showNPCMenu: false,
+            // Auction system
+            auction: null,
+            auctionTimer: null
         };
     }
 
@@ -162,9 +167,12 @@ export default class App extends React.Component {
             }
         } else if (data.type === 'yourTurn') {
             if (data.playerId === gameService.currentPlayer) {
+                soundManager.init();
+                soundManager.play('fanfare');
                 this.addNotification('YOUR TURN! Click dice to roll', 'turn', 'Your Turn');
             }
         } else if (data.type === 'buyOffer') {
+            soundManager.play('click');
             if (data.playerId === gameService.currentPlayer) {
                 // Start 15s countdown
                 let remaining = 15;
@@ -193,25 +201,96 @@ export default class App extends React.Component {
             if (this.state.buyOfferTimer) clearInterval(this.state.buyOfferTimer);
             this.setState({buyOffer: null, buyOfferTimer: null});
         } else if (data.type === 'propertyBought') {
+            soundManager.play('buy');
             this.addNotification(data.playerName + ' bought ' + data.property + ' for $' + data.price, 'info', 'Property Sold');
         } else if (data.type === 'rentPaid') {
             if (data.fromPlayer === gameService.currentPlayer) {
+                soundManager.play('rent');
                 this.addNotification('Paid $' + data.amount + ' rent to ' + data.toName + ' for ' + data.property, 'warning', 'Rent Paid');
             } else if (data.toPlayer === gameService.currentPlayer) {
+                soundManager.play('coin');
                 this.addNotification('Received $' + data.amount + ' rent from ' + data.fromName + ' for ' + data.property, 'reward', 'Rent Received');
             }
         } else if (data.type === 'taxPaid') {
             if (data.playerId === gameService.currentPlayer) {
+                soundManager.play('rent');
                 this.addNotification('Paid $' + data.amount + ' ' + data.taxType, 'warning', 'Tax');
             }
         } else if (data.type === 'playerMoved') {
-            // Could trigger animation here in the future
+            if (data.passedGo) {
+                soundManager.play('go');
+            }
+            // Clear drag override so token animates to calculated board position
+            if (this.boardRef) {
+                this.boardRef.clearDragOverride(data.playerId);
+            }
         } else if (data.type === 'jailed') {
+            soundManager.play('jail');
             if (data.playerId === gameService.currentPlayer) {
                 this.setState({showJailedOverlay: true});
                 setTimeout(() => this.setState({showJailedOverlay: false}), 3000);
             } else {
                 this.addNotification(data.playerName + ' got sent to jail!', 'warning', 'Jailed');
+            }
+        } else if (data.type === 'auctionStart') {
+            let remaining = 10;
+            const timer = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    this.setState({auction: null, auctionTimer: null});
+                } else {
+                    this.setState(prev => {
+                        if (!prev.auction) { clearInterval(timer); return null; }
+                        return {auction: {...prev.auction, remaining}};
+                    });
+                }
+            }, 1000);
+            this.setState({
+                auction: {
+                    property: data.property,
+                    price: data.price,
+                    currentBid: 0,
+                    currentBidder: null,
+                    currentBidderName: null,
+                    remaining
+                },
+                auctionTimer: timer
+            });
+            this.addNotification('AUCTION: ' + data.property + ' is up for auction!', 'warning', 'Auction');
+        } else if (data.type === 'auctionBid') {
+            if (this.state.auctionTimer) clearInterval(this.state.auctionTimer);
+            let remaining = data.timeRemaining || 10;
+            const timer = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    this.setState({auction: null, auctionTimer: null});
+                } else {
+                    this.setState(prev => {
+                        if (!prev.auction) { clearInterval(timer); return null; }
+                        return {auction: {...prev.auction, remaining}};
+                    });
+                }
+            }, 1000);
+            this.setState(prev => ({
+                auction: prev.auction ? {
+                    ...prev.auction,
+                    currentBid: data.amount,
+                    currentBidder: data.playerId,
+                    currentBidderName: data.playerName,
+                    remaining
+                } : null,
+                auctionTimer: timer
+            }));
+            this.addNotification(data.playerName + ' bid $' + data.amount, 'info', 'Auction Bid');
+        } else if (data.type === 'auctionEnd') {
+            if (this.state.auctionTimer) clearInterval(this.state.auctionTimer);
+            this.setState({auction: null, auctionTimer: null});
+            if (data.winnerId) {
+                this.addNotification(data.winnerName + ' won ' + data.property + ' for $' + data.amount, 'reward', 'Auction Won');
+            } else {
+                this.addNotification('No bids for ' + data.property, 'info', 'Auction Over');
             }
         } else if (data.type === 'newGame') {
             gameService.currentPlayer = null;
@@ -355,10 +434,20 @@ export default class App extends React.Component {
                 <button className="leave-room-btn" onClick={this.leaveRoom}>Leave Room</button>
                 <span className="room-badge">Room: {this.state.roomId}</span>
                 <button className="share-room-btn" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i> Share</button>
+                <div className="npc-menu-wrapper">
+                    <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>
+                        + Add NPC
+                    </button>
+                    {this.state.showNPCMenu && <div className="npc-dropdown">
+                        <button onClick={() => { gameService.addNPC('easy'); this.setState({showNPCMenu: false}); }}>Easy</button>
+                        <button onClick={() => { gameService.addNPC('medium'); this.setState({showNPCMenu: false}); }}>Medium</button>
+                        <button onClick={() => { gameService.addNPC('hard'); this.setState({showNPCMenu: false}); }}>Hard</button>
+                    </div>}
+                </div>
                 <Settings game={this.state.game} logs={this.state.logs} chat={this.state.chat}
                           showHelp={this.showHelp}/>
                 <div className="game">
-                    <Board game={this.state.game}/>
+                    <Board game={this.state.game} ref={ref => this.boardRef = ref}/>
                     <Logs logs={this.state.logs}/>
                     <Video game={this.state.game} chat={this.state.chat}/>
                     <Players game={this.state.game}/>
@@ -385,6 +474,32 @@ export default class App extends React.Component {
                         <div className="buy-offer-buttons">
                             <button className="buy-btn" onClick={this.handleBuyAccept}>Buy</button>
                             <button className="decline-btn" onClick={this.handleBuyDecline}>Decline</button>
+                        </div>
+                    </div>
+                </div>}
+                {this.state.auction && <div className="card-overlay">
+                    <div className="auction-modal">
+                        <h3>AUCTION</h3>
+                        <p className="auction-property">{this.state.auction.property}</p>
+                        <p className="auction-list-price">List price: ${this.state.auction.price}</p>
+                        {this.state.auction.currentBid > 0 ? (
+                            <p className="auction-current-bid">
+                                Current bid: ${this.state.auction.currentBid} by {this.state.auction.currentBidderName}
+                            </p>
+                        ) : (
+                            <p className="auction-current-bid">No bids yet</p>
+                        )}
+                        <p className="auction-timer">{this.state.auction.remaining}s remaining</p>
+                        <div className="auction-bid-buttons">
+                            <button className="bid-btn" onClick={() => gameService.placeBid((this.state.auction.currentBid || 0) + 10)}>
+                                +$10
+                            </button>
+                            <button className="bid-btn" onClick={() => gameService.placeBid((this.state.auction.currentBid || 0) + 50)}>
+                                +$50
+                            </button>
+                            <button className="bid-btn" onClick={() => gameService.placeBid((this.state.auction.currentBid || 0) + 100)}>
+                                +$100
+                            </button>
                         </div>
                     </div>
                 </div>}

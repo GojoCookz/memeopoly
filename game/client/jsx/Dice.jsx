@@ -1,6 +1,8 @@
 import React from 'react';
 import {soundManager} from "./services/SoundManager";
 
+const DICE_SKINS = ['classic', 'neon', 'fire', 'gold', 'phantom'];
+
 export default class Dice extends React.Component {
     constructor(props) {
         super(props);
@@ -55,8 +57,11 @@ export default class Dice extends React.Component {
             ? undefined
             : this.getFaceRotation(value);
 
+        const skin = this.props.skin || 'neon';
+        const skinClass = skin === 'neon' ? '' : `dice-skin-${skin}`;
+
         return (
-            <div className={"dice3d-wrapper " + (rolling ? "rolling" : "landed")}>
+            <div className={`dice3d-wrapper ${rolling ? "rolling" : "landed"} ${skinClass}`}>
                 <div className="dice3d-cube" style={rolling ? {animationDelay: delay, animationDuration: duration} : {transform}}>
                     <div className="dice3d-face front">{this.renderFace(1)}</div>
                     <div className="dice3d-face back">{this.renderFace(6)}</div>

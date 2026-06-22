@@ -14,12 +14,18 @@ export default class Players extends React.Component {
         return (<div className="player-list">
             <h3>Players</h3>
             <div className="player-tabs">
-                {players.map(p => <div key={p.id}
-                                       onClick={() => this.setState({selected: p.id})}
-                                       className={"player "}>
-                    <Token token={p.token} selected={p.id === selected} customImage={p.customImage} color={p.tokenColor}/>
-                    {p.name}
-                </div>)}
+                {players.map(p => {
+                    const isCurrentTurn = this.props.game.currentTurn === p.id;
+                    return <div key={p.id}
+                                onClick={() => this.setState({selected: p.id})}
+                                className={"player " + (isCurrentTurn ? "current-turn" : "")}>
+                        {isCurrentTurn && <span className="turn-arrow">&#9658; </span>}
+                        <Token token={p.token} selected={p.id === selected} customImage={p.customImage} color={p.tokenColor}/>
+                        {p.name}
+                        {p.inJail && <span className="jail-badge"> (JAIL)</span>}
+                        {p.position !== undefined && p.id !== 1 && <span className="position-badge"> [{p.position}]</span>}
+                    </div>
+                })}
             </div>
             <PlayerBoard player={this.state.selected} game={this.props.game}/>
         </div>)

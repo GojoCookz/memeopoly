@@ -154,6 +154,26 @@ class GameService {
         })
     }
 
+    buyProperty = () => {
+        this.sendToWs('buyProperty', {});
+    }
+
+    declineProperty = () => {
+        this.sendToWs('declineProperty', {});
+    }
+
+    endTurn = () => {
+        this.sendToWs('endTurn', {});
+    }
+
+    payJailFine = () => {
+        this.sendToWs('payJailFine', {});
+    }
+
+    isMyTurn = () => {
+        return this.game && this.game.currentTurn === this.currentPlayer;
+    }
+
     canMortgage = (deed, game) => {
         if (deed.owner !== this.currentPlayer) {
             return false;

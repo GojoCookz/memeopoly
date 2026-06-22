@@ -253,6 +253,30 @@ h3 {
     gap: 10px;
     z-index: 15;
     filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.3));
+    transition: transform 0.2s ease, filter 0.2s ease;
+
+    &:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+      filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 30px rgba(100, 200, 255, 0.6));
+    }
+
+    &::after {
+      content: "Click to roll";
+      position: absolute;
+      bottom: -24px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: rgba(100, 200, 255, 0.7);
+      white-space: nowrap;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover::after {
+      opacity: 0;
+    }
   }
 
   .board-token {
@@ -271,7 +295,7 @@ h3 {
   box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 60px rgba(56, 189, 248, 0.12), 0 0 120px rgba(139, 92, 246, 0.06), inset 0 0 80px rgba(56, 189, 248, 0.04);
   border: 2px solid rgba(56, 189, 248, 0.3);
   border-radius: 8px;
-  transform: perspective(1200px) rotateX(2deg);
+  transform: rotateX(2deg);
   transition: transform 0.4s ease;
   animation: board-glow 4s ease-in-out infinite alternate;
   display: grid;
@@ -602,12 +626,12 @@ h3 {
 }
 
 
-@dice3dSize: 60px;
+@dice3dSize: 70px;
 
 .dice3d-wrapper {
   width: @dice3dSize;
   height: @dice3dSize;
-  perspective: 300px;
+  perspective: 400px;
   margin: 10px;
   cursor: pointer;
 
@@ -632,9 +656,9 @@ h3 {
   width: @dice3dSize;
   height: @dice3dSize;
   border-radius: 8px;
-  border: 2px solid rgba(56, 189, 248, 0.7);
-  background: linear-gradient(145deg, #2a3a6a 0%, #1a2550 100%);
-  box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.15), 0 0 12px rgba(56, 189, 248, 0.3);
+  border: 2px solid rgba(100, 200, 255, 0.8);
+  background: linear-gradient(145deg, #4a5a9a 0%, #2a3560 100%);
+  box-shadow: inset 0 0 20px rgba(100, 200, 255, 0.2), 0 0 12px rgba(100, 200, 255, 0.4);
   display: flex;
   flex-wrap: wrap;
   align-content: center;
@@ -651,20 +675,20 @@ h3 {
 }
 
 .dice3d-dot {
-  width: 11px;
-  height: 11px;
-  background: #fff;
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 8px @accentCyan, 0 0 16px rgba(56, 189, 248, 0.5);
+  box-shadow: 0 0 10px @accentCyan, 0 0 20px rgba(100, 200, 255, 0.6), 0 0 4px #fff;
   position: absolute;
 
-  &.center      { top: calc(50% - 4.5px); left: calc(50% - 4.5px); }
-  &.top-left    { top: 20%; left: 20%; }
-  &.top-right   { top: 20%; right: 20%; }
-  &.mid-left    { top: calc(50% - 4.5px); left: 20%; }
-  &.mid-right   { top: calc(50% - 4.5px); right: 20%; }
-  &.bottom-left { bottom: 20%; left: 20%; }
-  &.bottom-right{ bottom: 20%; right: 20%; }
+  &.center      { top: calc(50% - 6px); left: calc(50% - 6px); }
+  &.top-left    { top: 18%; left: 18%; }
+  &.top-right   { top: 18%; right: 18%; }
+  &.mid-left    { top: calc(50% - 6px); left: 18%; }
+  &.mid-right   { top: calc(50% - 6px); right: 18%; }
+  &.bottom-left { bottom: 18%; left: 18%; }
+  &.bottom-right{ bottom: 18%; right: 18%; }
 }
 
 @keyframes dice-tumble {
@@ -2303,4 +2327,172 @@ h3 {
   .profile-stats { grid-template-columns: repeat(2, 1fr); }
   .slide-panel { width: 100vw; }
   .vault-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+// Turn system & automated banker UI
+.buy-offer-modal {
+  background: linear-gradient(145deg, #1a2040 0%, #0f1525 100%);
+  border: 2px solid @accentCyan;
+  border-radius: 12px;
+  padding: 30px 40px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(56, 189, 248, 0.3), 0 20px 60px rgba(0,0,0,0.8);
+  animation: slideUp 0.3s ease;
+  min-width: 300px;
+
+  h3 {
+    color: @accentCyan;
+    font-size: 20px;
+    margin: 0 0 15px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+}
+
+.buy-offer-property {
+  color: #fff;
+  font-size: 24px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.buy-offer-price {
+  color: #4ade80;
+  font-size: 32px;
+  font-weight: bold;
+  margin: 10px 0;
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+}
+
+.buy-offer-timer {
+  color: #f87171;
+  font-size: 18px;
+  margin: 15px 0;
+  animation: pulse-glow 1s ease infinite;
+}
+
+.buy-offer-buttons {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.buy-btn {
+  background: linear-gradient(180deg, #4ade80 0%, #22c55e 100%);
+  color: #0a0a0a;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  &:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(74, 222, 128, 0.5); }
+}
+
+.decline-btn {
+  background: linear-gradient(180deg, #6b7280 0%, #4b5563 100%);
+  color: #fff;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+  &:hover { transform: scale(1.05); }
+}
+
+.jailed-overlay {
+  background: linear-gradient(145deg, #7f1d1d 0%, #450a0a 100%);
+  border: 3px solid #ef4444;
+  border-radius: 16px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(239, 68, 68, 0.5), 0 20px 60px rgba(0,0,0,0.8);
+  animation: jailShake 0.5s ease;
+
+  h2 {
+    color: #ef4444;
+    font-size: 48px;
+    margin: 0;
+    text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 4px;
+  }
+
+  p {
+    color: #fca5a5;
+    font-size: 24px;
+    margin: 10px 0 0;
+  }
+}
+
+@keyframes jailShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+  20%, 40%, 60%, 80% { transform: translateX(8px); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// Turn indicator on player tabs
+.current-turn {
+  border-color: @accentCyan !important;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.5), inset 0 0 10px rgba(56, 189, 248, 0.1) !important;
+  animation: pulse-glow 1.5s ease infinite;
+}
+
+.turn-arrow {
+  color: @accentCyan;
+  font-size: 14px;
+  margin-right: 6px;
+  animation: float 1s ease infinite;
+}
+
+.jail-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.position-badge {
+  background: rgba(56, 189, 248, 0.2);
+  color: @accentCyan;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+}
+
+// Dice pulse when it's your turn
+.dice-your-turn {
+  animation: dice-pulse 1.5s ease infinite;
+}
+
+@keyframes dice-pulse {
+  0%, 100% { filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.3)); }
+  50% { filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(56, 189, 248, 0.8)) drop-shadow(0 0 60px rgba(139, 92, 246, 0.4)); }
+}
+
+// Turn notification style
+.notification.turn {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border-color: @accentCyan;
+  font-weight: bold;
+  font-size: 16px;
 }

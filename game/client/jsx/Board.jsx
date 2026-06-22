@@ -26,6 +26,9 @@ export default class Board extends React.Component {
     }
 
     rollDice = () => {
+        if (gameService.game && gameService.game.currentTurn && gameService.game.currentTurn !== gameService.currentPlayer) {
+            return; // Not your turn
+        }
         gameService.rollDie();
     }
 
@@ -100,7 +103,7 @@ export default class Board extends React.Component {
                         </div>
                     }
                 )}
-                <div className="dice-set" onClick={this.rollDice}>
+                <div className={"dice-set" + (game.currentTurn === gameService.currentPlayer && game.turnPhase === 'rolling' ? " dice-your-turn" : "")} onClick={this.rollDice}>
                     <Dice diceValue={this.props.game.dice[0]} rolling={this.props.game.rollingDice}/>
                     <Dice diceValue={this.props.game.dice[1]} rolling={this.props.game.rollingDice}/>
                 </div>

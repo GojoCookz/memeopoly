@@ -46,7 +46,11 @@ export default class App extends React.Component {
             authToken: null,
             showProfile: false,
             showLeaderboard: false,
-            showVault: false
+            showVault: false,
+            // Turn system
+            buyOffer: null,
+            buyOfferTimer: null,
+            showJailedOverlay: false
         };
     }
 
@@ -156,6 +160,59 @@ export default class App extends React.Component {
                     this.addNotification('+' + (now - prev) + ' $MEMO earned!', 'reward', 'Token Reward');
                 }
             }
+        } else if (data.type === 'yourTurn') {
+            if (data.playerId === gameService.currentPlayer) {
+                this.addNotification('YOUR TURN! Click dice to roll', 'turn', 'Your Turn');
+            }
+        } else if (data.type === 'buyOffer') {
+            if (data.playerId === gameService.currentPlayer) {
+                // Start 15s countdown
+                let remaining = 15;
+                const timer = setInterval(() => {
+                    remaining--;
+                    if (remaining <= 0) {
+                        clearInterval(timer);
+                        this.setState({buyOffer: null, buyOfferTimer: null});
+                    } else {
+                        this.setState(prev => {
+                            if (!prev.buyOffer) { clearInterval(timer); return null; }
+                            return {buyOffer: {...prev.buyOffer, remaining}};
+                        });
+                    }
+                }, 1000);
+                this.setState({
+                    buyOffer: {property: data.property, price: data.price, remaining},
+                    buyOfferTimer: timer
+                });
+            } else {
+                const buyerPlayer = this.state.game ? this.state.game.players.find(p => p.id === data.playerId) : null;
+                const buyerName = buyerPlayer ? buyerPlayer.name : 'A player';
+                this.addNotification(buyerName + ' landed on ' + data.property, 'info');
+            }
+        } else if (data.type === 'buyOfferExpired') {
+            if (this.state.buyOfferTimer) clearInterval(this.state.buyOfferTimer);
+            this.setState({buyOffer: null, buyOfferTimer: null});
+        } else if (data.type === 'propertyBought') {
+            this.addNotification(data.playerName + ' bought ' + data.property + ' for $' + data.price, 'info', 'Property Sold');
+        } else if (data.type === 'rentPaid') {
+            if (data.fromPlayer === gameService.currentPlayer) {
+                this.addNotification('Paid $' + data.amount + ' rent to ' + data.toName + ' for ' + data.property, 'warning', 'Rent Paid');
+            } else if (data.toPlayer === gameService.currentPlayer) {
+                this.addNotification('Received $' + data.amount + ' rent from ' + data.fromName + ' for ' + data.property, 'reward', 'Rent Received');
+            }
+        } else if (data.type === 'taxPaid') {
+            if (data.playerId === gameService.currentPlayer) {
+                this.addNotification('Paid $' + data.amount + ' ' + data.taxType, 'warning', 'Tax');
+            }
+        } else if (data.type === 'playerMoved') {
+            // Could trigger animation here in the future
+        } else if (data.type === 'jailed') {
+            if (data.playerId === gameService.currentPlayer) {
+                this.setState({showJailedOverlay: true});
+                setTimeout(() => this.setState({showJailedOverlay: false}), 3000);
+            } else {
+                this.addNotification(data.playerName + ' got sent to jail!', 'warning', 'Jailed');
+            }
         } else if (data.type === 'newGame') {
             gameService.currentPlayer = null;
         } else {
@@ -170,6 +227,18 @@ export default class App extends React.Component {
     leaveRoom = () => {
         gameService.leaveRoom();
         this.setState({inRoom: false, roomId: null, game: null, logs: [], chat: [], view: 'lobby'});
+    }
+
+    handleBuyAccept = () => {
+        if (this.state.buyOfferTimer) clearInterval(this.state.buyOfferTimer);
+        this.setState({buyOffer: null, buyOfferTimer: null});
+        gameService.buyProperty();
+    }
+
+    handleBuyDecline = () => {
+        if (this.state.buyOfferTimer) clearInterval(this.state.buyOfferTimer);
+        this.setState({buyOffer: null, buyOfferTimer: null});
+        gameService.declineProperty();
     }
 
     addNotification = (message, type = 'info', title = null) => {
@@ -305,6 +374,24 @@ export default class App extends React.Component {
                         <span className="card-type">{card.type}</span>
                         <span className="card-text">{card.card}</span>
                         <span className="card-player">TO: {card.player.name}</span>
+                    </div>
+                </div>}
+                {this.state.buyOffer && <div className="card-overlay">
+                    <div className="buy-offer-modal">
+                        <h3>Property Available!</h3>
+                        <p className="buy-offer-property">{this.state.buyOffer.property}</p>
+                        <p className="buy-offer-price">${this.state.buyOffer.price}</p>
+                        <p className="buy-offer-timer">{this.state.buyOffer.remaining}s remaining</p>
+                        <div className="buy-offer-buttons">
+                            <button className="buy-btn" onClick={this.handleBuyAccept}>Buy</button>
+                            <button className="decline-btn" onClick={this.handleBuyDecline}>Decline</button>
+                        </div>
+                    </div>
+                </div>}
+                {this.state.showJailedOverlay && <div className="card-overlay">
+                    <div className="jailed-overlay">
+                        <h2>RUGGED!</h2>
+                        <p>Go to Jail!</p>
                     </div>
                 </div>}
             </div>);

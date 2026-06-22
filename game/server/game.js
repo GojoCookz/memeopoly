@@ -128,6 +128,11 @@ class GameService {
             dice: [3, 6],
             rollingDice: false,
             started: false,
+            currentTurn: null,
+            turnOrder: [],
+            turnPhase: 'waiting',
+            doublesCount: 0,
+            lastRoll: null,
             players: [{
                 id: 1,
                 name: 'Bank',
@@ -839,6 +844,18 @@ class GameService {
             case 'getCpolyState':
                 this.broadcastCpoly();
                 break;
+            case 'buyProperty':
+                this.handleBuyProperty(from);
+                break;
+            case 'declineProperty':
+                this.handleDeclineProperty(from);
+                break;
+            case 'endTurn':
+                this.endTurn();
+                break;
+            case 'payJailFine':
+                this.payJailFine(from);
+                break;
         }
 
         return {type: 'game', game: this.game};
@@ -1129,6 +1146,9 @@ class GameService {
             chance: 0,
             community: 0,
         }
+        player.position = 0;
+        player.inJail = false;
+        player.jailTurns = 0;
 
         this.game.players.push(player);
         this.handleDailyLogin(player.id);
@@ -1143,6 +1163,11 @@ class GameService {
             500: 2,
         });
 
+        // Add to turn order and start turns
+        this.game.turnOrder.push(player.id);
+        if (this.game.turnOrder.length >= 1 && !this.game.currentTurn) {
+            this.startTurn(this.game.turnOrder[0]);
+        }
     }
 
     getPlayerFromId = (id) => {
@@ -1214,12 +1239,24 @@ class GameService {
     }
 
     rollDice = (times, max, from) => {
-        const player = this.getPlayerFromId(from).name;
+        const playerObj = this.getPlayerFromId(from);
+        const player = playerObj ? playerObj.name : from;
+
+        // Turn enforcement: only current turn player can roll, and only during rolling phase
+        if (times === 0 && this.game.currentTurn && this.game.currentTurn !== from) {
+            this.sendLog(player + " tried to roll but it's not their turn!");
+            return;
+        }
+        if (times === 0 && this.game.turnPhase !== 'rolling') {
+            return;
+        }
+
         if (times === 0 && this.game.rollingDice === true) {
             return;
         }
         if (times === 0) {
             this.game.rollingDice = true;
+            this.game.turnPhase = 'moving';
             this.sendToWs();
             this.sendLog(player + ' rolled the dice !');
         }
@@ -1235,10 +1272,591 @@ class GameService {
                 , Math.floor(Math.random() * Math.floor(250)) + 50)
         } else {
             this.game.rollingDice = false;
-            this.sendToWs();
-            this.sendLog(player + ' rolled ' + this.game.dice[0] + " and " + this.game.dice[1] + "!");
+
+            const dice1 = this.game.dice[0];
+            const dice2 = this.game.dice[1];
+            const total = dice1 + dice2;
+            const isDoubles = dice1 === dice2;
+
+            this.game.lastRoll = {dice1, dice2, total, isDoubles};
+            this.sendLog(player + ' rolled ' + dice1 + " and " + dice2 + "!" + (isDoubles ? " DOUBLES!" : ""));
+
+            if (isDoubles) {
+                this.game.doublesCount++;
+            }
+
+            // Handle jail roll
+            if (playerObj && playerObj.inJail) {
+                if (isDoubles) {
+                    playerObj.inJail = false;
+                    playerObj.jailTurns = 0;
+                    this.sendLog(player + " rolled doubles and is free from jail!");
+                } else {
+                    playerObj.jailTurns++;
+                    if (playerObj.jailTurns >= 3) {
+                        this.autoTransferMoney(playerObj.id, 1, 50);
+                        playerObj.inJail = false;
+                        playerObj.jailTurns = 0;
+                        this.sendLog(player + " failed to roll doubles 3 times. Paid $50 fine.");
+                    } else {
+                        this.sendLog(player + " is still in jail (" + playerObj.jailTurns + "/3 attempts)");
+                        this.game.turnPhase = 'done';
+                        this.sendToWs();
+                        this.endTurn();
+                        return;
+                    }
+                }
+            }
+
+            // Triple doubles = jail
+            if (this.game.doublesCount >= 3 && playerObj) {
+                this.sendLog(player + " rolled doubles 3 times in a row! Go to jail!");
+                this.sendToJail(playerObj);
+                return;
+            }
+
+            // Move player
+            if (playerObj) {
+                const oldPosition = playerObj.position || 0;
+                const newPosition = (oldPosition + total) % 40;
+                const passedGo = newPosition < oldPosition;
+
+                playerObj.position = newPosition;
+                this.game.turnPhase = 'action';
+
+                if (passedGo && newPosition !== 0) {
+                    this.autoTransferMoney(1, playerObj.id, 200);
+                    this.sendLog(player + " passed GO and collected $200");
+                    this.awardCpoly(playerObj.id, 50, 'passed GO');
+                }
+
+                this.sendLog(player + " moved to position " + newPosition);
+                this.ws.broadcast(JSON.stringify({
+                    type: 'playerMoved',
+                    playerId: playerObj.id,
+                    from: oldPosition,
+                    to: newPosition,
+                    passedGo: passedGo
+                }));
+
+                this.sendToWs();
+
+                // Handle landing after a short delay for animation
+                setTimeout(() => {
+                    this.handleLanding(playerObj, newPosition);
+                }, 500);
+            } else {
+                this.sendToWs();
+            }
         }
 
+    }
+
+    // ========== TURN SYSTEM ==========
+
+    startTurn = (playerId) => {
+        this.game.currentTurn = playerId;
+        this.game.turnPhase = 'rolling';
+        this.game.doublesCount = 0;
+        const player = this.getPlayerFromId(playerId);
+        this.sendLog("It's " + player.name + "'s turn!");
+        this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId}));
+        this.sendToWs();
+    }
+
+    endTurn = () => {
+        const lastRoll = this.game.lastRoll;
+        // If doubles were rolled and not going to jail, same player goes again
+        if (lastRoll && lastRoll.isDoubles && this.game.doublesCount < 3) {
+            this.game.turnPhase = 'rolling';
+            const player = this.getPlayerFromId(this.game.currentTurn);
+            this.sendLog(player.name + " rolled doubles! Rolling again...");
+            this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: this.game.currentTurn}));
+            this.sendToWs();
+            return;
+        }
+
+        // Advance to next player
+        const currentIndex = this.game.turnOrder.indexOf(this.game.currentTurn);
+        const nextIndex = (currentIndex + 1) % this.game.turnOrder.length;
+        this.game.doublesCount = 0;
+        this.game.lastRoll = null;
+        this.startTurn(this.game.turnOrder[nextIndex]);
+    }
+
+    // ========== AUTOMATED BANKER ==========
+
+    pendingBuyOffer = null;
+    buyOfferTimeout = null;
+
+    handleLanding = (player, position) => {
+        // Check all deed types
+        const regularDeed = this.game.deeds.regular.find(d => d.position === position);
+        const stationDeed = this.game.deeds.trainStations.find(d => d.position === position);
+        const utilityDeed = this.game.deeds.utilities.find(d => d.position === position);
+        const deed = regularDeed || stationDeed || utilityDeed;
+        const deedType = regularDeed ? 'regular' : stationDeed ? 'trainStations' : utilityDeed ? 'utilities' : null;
+
+        if (deed) {
+            if (deed.owner === "1") {
+                // Unowned - offer to buy
+                this.pendingBuyOffer = {playerId: player.id, deed: deed, deedType: deedType};
+                this.ws.broadcast(JSON.stringify({
+                    type: 'buyOffer',
+                    playerId: player.id,
+                    property: deed.title,
+                    price: deed.price,
+                    position: deed.position
+                }));
+                this.sendLog(deed.title + " is available for $" + deed.price);
+                // 15 second timeout
+                this.buyOfferTimeout = setTimeout(() => {
+                    if (this.pendingBuyOffer && this.pendingBuyOffer.playerId === player.id) {
+                        this.sendLog(player.name + " didn't decide in time. " + deed.title + " stays with the bank.");
+                        this.pendingBuyOffer = null;
+                        this.game.turnPhase = 'done';
+                        this.sendToWs();
+                        this.ws.broadcast(JSON.stringify({type: 'buyOfferExpired'}));
+                        this.endTurn();
+                    }
+                }, 15000);
+                return; // Don't end turn yet - waiting for buy decision
+            } else if (deed.owner != player.id && !deed.mortgaged) {
+                // Owned by another player - pay rent
+                const owner = this.getPlayerFromId(deed.owner);
+                const rent = this.calculateRent(deed, deedType);
+                if (rent > 0) {
+                    this.autoTransferMoney(player.id, deed.owner, rent);
+                    this.sendLog(player.name + " paid $" + rent + " rent to " + owner.name + " for " + deed.title);
+                    this.ws.broadcast(JSON.stringify({
+                        type: 'rentPaid',
+                        fromPlayer: player.id,
+                        fromName: player.name,
+                        toPlayer: deed.owner,
+                        toName: owner.name,
+                        amount: rent,
+                        property: deed.title
+                    }));
+                }
+            }
+            // Owned by self or mortgaged - nothing
+        } else if (position === 4) {
+            // Income Tax
+            this.autoTransferMoney(player.id, 1, 200);
+            this.sendLog(player.name + " paid $200 Income Tax");
+            this.ws.broadcast(JSON.stringify({type: 'taxPaid', playerId: player.id, amount: 200, taxType: 'Income Tax'}));
+        } else if (position === 38) {
+            // Super Tax
+            this.autoTransferMoney(player.id, 1, 100);
+            this.sendLog(player.name + " paid $100 Super Tax");
+            this.ws.broadcast(JSON.stringify({type: 'taxPaid', playerId: player.id, amount: 100, taxType: 'Super Tax'}));
+        } else if (position === 30) {
+            // Go To Jail
+            this.sendToJail(player);
+            return;
+        } else if (position === 2 || position === 17 || position === 33) {
+            // Community Chest
+            this.autoDrawCard('community', player);
+            return; // Card handling manages turn end
+        } else if (position === 7 || position === 22 || position === 36) {
+            // Chance
+            this.autoDrawCard('chance', player);
+            return; // Card handling manages turn end
+        }
+        // Position 0 (GO) and 10 (Jail/Just Visiting) - nothing extra
+
+        this.game.turnPhase = 'done';
+        this.sendToWs();
+        this.endTurn();
+    }
+
+    calculateRent = (deed, deedType) => {
+        if (deed.mortgaged) return 0;
+
+        if (deedType === 'regular') {
+            if (deed.hotel > 0) {
+                return this.parseRentValue(deed.rent["With Hotel"]);
+            }
+            if (deed.houses > 0) {
+                return this.parseRentValue(deed.rent["With " + deed.houses + " House"]);
+            }
+            // Check if owner has color set
+            const ownerHasSet = this.game.deeds.regular
+                .filter(d => d.color === deed.color)
+                .every(d => d.owner === deed.owner);
+            if (ownerHasSet) {
+                return this.parseRentValue(deed.rent["With colour set"]);
+            }
+            return this.parseRentValue(deed.rent["Rent"]);
+        } else if (deedType === 'trainStations') {
+            const stationsOwned = this.game.deeds.trainStations.filter(s => s.owner === deed.owner).length;
+            const rentMap = {1: 25, 2: 50, 3: 100, 4: 200};
+            return rentMap[stationsOwned] || 25;
+        } else if (deedType === 'utilities') {
+            const utilitiesOwned = this.game.deeds.utilities.filter(u => u.owner === deed.owner).length;
+            const diceTotal = (this.game.lastRoll && this.game.lastRoll.total) || (this.game.dice[0] + this.game.dice[1]);
+            return utilitiesOwned >= 2 ? diceTotal * 10 : diceTotal * 4;
+        }
+        return 0;
+    }
+
+    parseRentValue = (rentStr) => {
+        if (!rentStr) return 0;
+        return parseInt(("" + rentStr).replace('$', '').replace(',', ''), 10) || 0;
+    }
+
+    autoTransferMoney = (fromId, toId, amount) => {
+        // Transfer using $100 bills from bank's infinite supply conceptually
+        // Break amount into note denominations
+        const fromPlayer = this.getPlayerFromId(fromId);
+        const toPlayer = this.getPlayerFromId(toId);
+        if (!fromPlayer || !toPlayer) return;
+
+        // Simple approach: deduct from total, add to recipient using available denominations
+        const denominations = [500, 100, 50, 20, 10, 5, 1];
+        let remaining = amount;
+        const notes = {500: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0, 1: 0};
+
+        // Take from payer's notes
+        for (const denom of denominations) {
+            while (remaining >= denom && fromPlayer.notes[denom] > 0) {
+                fromPlayer.notes[denom]--;
+                notes[denom]++;
+                remaining -= denom;
+            }
+        }
+
+        // If player doesn't have exact change, still process (they owe)
+        if (remaining > 0) {
+            // Take larger bills and give change
+            for (const denom of denominations) {
+                if (fromPlayer.notes[denom] > 0 && denom >= remaining) {
+                    fromPlayer.notes[denom]--;
+                    const change = denom - remaining;
+                    // Give change back from bank
+                    let changeLeft = change;
+                    for (const cd of denominations) {
+                        while (changeLeft >= cd) {
+                            fromPlayer.notes[cd]++;
+                            const bank = this.getPlayerFromId(1);
+                            if (bank.notes[cd] > 0) bank.notes[cd]--;
+                            changeLeft -= cd;
+                        }
+                    }
+                    notes[denom]++;
+                    remaining = 0;
+                    break;
+                }
+            }
+        }
+
+        // Add to payee
+        for (const denom of denominations) {
+            toPlayer.notes[denom] += notes[denom];
+        }
+
+        const fromSum = this.calculateNotesSum(fromPlayer.notes);
+        const toSum = this.calculateNotesSum(toPlayer.notes);
+        this.sendLog(fromPlayer.name + " new balance: $" + fromSum);
+        this.sendLog(toPlayer.name + " new balance: $" + toSum);
+    }
+
+    handleBuyProperty = (playerId) => {
+        if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+        clearTimeout(this.buyOfferTimeout);
+
+        const {deed, deedType} = this.pendingBuyOffer;
+        const player = this.getPlayerFromId(playerId);
+        const balance = this.calculateNotesSum(player.notes);
+
+        if (balance < deed.price) {
+            this.sendLog(player.name + " can't afford " + deed.title + " ($" + deed.price + ")");
+            this.pendingBuyOffer = null;
+            this.game.turnPhase = 'done';
+            this.sendToWs();
+            this.endTurn();
+            return;
+        }
+
+        this.autoTransferMoney(playerId, 1, deed.price);
+        deed.owner = playerId;
+        this.sendLog(player.name + " bought " + deed.title + " for $" + deed.price);
+        this.ws.broadcast(JSON.stringify({
+            type: 'propertyBought',
+            playerId: playerId,
+            playerName: player.name,
+            property: deed.title,
+            price: deed.price
+        }));
+
+        if (deedType === 'regular') this.checkColorSetBonus(playerId);
+
+        this.pendingBuyOffer = null;
+        this.game.turnPhase = 'done';
+        this.sendToWs();
+        this.endTurn();
+    }
+
+    handleDeclineProperty = (playerId) => {
+        if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+        clearTimeout(this.buyOfferTimeout);
+
+        const player = this.getPlayerFromId(playerId);
+        this.sendLog(player.name + " declined to buy " + this.pendingBuyOffer.deed.title);
+        this.pendingBuyOffer = null;
+        this.game.turnPhase = 'done';
+        this.sendToWs();
+        this.endTurn();
+    }
+
+    // ========== JAIL ==========
+
+    sendToJail = (player) => {
+        player.position = 10;
+        player.inJail = true;
+        player.jailTurns = 0;
+        this.sendLog(player.name + " has been sent to jail!");
+        this.ws.broadcast(JSON.stringify({
+            type: 'jailed',
+            playerId: player.id,
+            playerName: player.name
+        }));
+        this.game.turnPhase = 'done';
+        this.sendToWs();
+        this.endTurn();
+    }
+
+    payJailFine = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.inJail) return;
+
+        const balance = this.calculateNotesSum(player.notes);
+        if (balance < 50) {
+            this.sendLog(player.name + " can't afford the $50 jail fine");
+            return;
+        }
+
+        this.autoTransferMoney(playerId, 1, 50);
+        player.inJail = false;
+        player.jailTurns = 0;
+        this.sendLog(player.name + " paid $50 to get out of jail");
+        this.sendToWs();
+    }
+
+    // ========== AUTO CARD DRAW ==========
+
+    autoDrawCard = (type, player) => {
+        const cards = this.game.cards[type];
+
+        if (cards.available.length === 0) {
+            cards.available = shuffle(cards.used);
+            cards.used = [];
+            this.sendLog("No more " + type + " cards, shuffling the old ones");
+        }
+
+        const picked = cards.available.pop();
+
+        if (picked === OUT_OF_JAIL) {
+            player.outOfJail[type]++;
+            this.sendLog(player.name + " drew: " + picked);
+            this.ws.broadcast(JSON.stringify({type: 'cardDrawn', card: picked, cardType: type, player: player}));
+            this.game.turnPhase = 'done';
+            this.sendToWs();
+            this.endTurn();
+            return;
+        }
+
+        cards.used.push(picked);
+        this.sendLog(player.name + " drew " + type + " card: \"" + picked + "\"");
+        this.ws.broadcast(JSON.stringify({type: 'cardDrawn', card: picked, cardType: type, player: player}));
+
+        // Execute card effects
+        this.executeCardEffect(picked, player);
+    }
+
+    executeCardEffect = (card, player) => {
+        const text = card.toLowerCase();
+
+        if (text.includes('go directly to jail')) {
+            this.sendToJail(player);
+            return;
+        }
+        if (text.includes('advance to go') || text === 'advance to go, collect $200 in $memo tokens') {
+            player.position = 0;
+            this.autoTransferMoney(1, player.id, 200);
+            this.sendLog(player.name + " advanced to GO and collected $200");
+        } else if (text.includes('go back 3 spaces') || text.includes('paper hands')) {
+            const oldPos = player.position;
+            player.position = (player.position - 3 + 40) % 40;
+            this.sendLog(player.name + " went back 3 spaces to position " + player.position);
+            this.ws.broadcast(JSON.stringify({type: 'playerMoved', playerId: player.id, from: oldPos, to: player.position, passedGo: false}));
+            this.handleLanding(player, player.position);
+            return;
+        } else if (text.includes('collect $') && text.includes('from each player')) {
+            // "Collect $X from each player"
+            const match = card.match(/\$(\d+)/);
+            const amount = match ? parseInt(match[1], 10) : 10;
+            const nonBankPlayers = this.game.players.filter(p => p.id !== 1 && p.id !== player.id);
+            nonBankPlayers.forEach(p => {
+                this.autoTransferMoney(p.id, player.id, amount);
+            });
+            this.sendLog(player.name + " collected $" + amount + " from each player");
+        } else if (text.includes('pay each player $')) {
+            const match = card.match(/pay each player \$(\d+)/i);
+            const amount = match ? parseInt(match[1], 10) : 50;
+            const nonBankPlayers = this.game.players.filter(p => p.id !== 1 && p.id !== player.id);
+            nonBankPlayers.forEach(p => {
+                this.autoTransferMoney(player.id, p.id, amount);
+            });
+            this.sendLog(player.name + " paid $" + amount + " to each player");
+        } else if (text.includes('for each house pay') || text.includes('maintenance')) {
+            const houseMatch = card.match(/house pay \$(\d+)/i);
+            const hotelMatch = card.match(/hotel pay \$(\d+)/i);
+            const houseCost = houseMatch ? parseInt(houseMatch[1], 10) : 25;
+            const hotelCost = hotelMatch ? parseInt(hotelMatch[1], 10) : 100;
+            let totalHouses = 0, totalHotels = 0;
+            this.game.deeds.regular.forEach(d => {
+                if (d.owner == player.id) {
+                    totalHouses += d.houses;
+                    totalHotels += d.hotel;
+                }
+            });
+            const total = totalHouses * houseCost + totalHotels * hotelCost;
+            if (total > 0) {
+                this.autoTransferMoney(player.id, 1, total);
+                this.sendLog(player.name + " paid $" + total + " for maintenance (" + totalHouses + " houses, " + totalHotels + " hotels)");
+            }
+        } else if (text.includes('advance to') && !text.includes('go')) {
+            // Advance to a specific property
+            this.handleAdvanceCard(card, player);
+            return;
+        } else if (text.includes('take a trip to')) {
+            this.handleAdvanceCard(card, player);
+            return;
+        } else if (text.includes('collect $')) {
+            const match = card.match(/\$(\d+)/);
+            const amount = match ? parseInt(match[1], 10) : 0;
+            if (amount > 0) {
+                this.autoTransferMoney(1, player.id, amount);
+                this.sendLog(player.name + " collected $" + amount);
+            }
+        } else if (text.includes('pay $')) {
+            const match = card.match(/\$(\d+)/);
+            const amount = match ? parseInt(match[1], 10) : 0;
+            if (amount > 0) {
+                this.autoTransferMoney(player.id, 1, amount);
+                this.sendLog(player.name + " paid $" + amount);
+            }
+        } else if (text.includes('advance to the next station') || text.includes('advance to the nearest utility')) {
+            this.handleAdvanceToNearest(card, player);
+            return;
+        }
+
+        this.game.turnPhase = 'done';
+        this.sendToWs();
+        this.endTurn();
+    }
+
+    handleAdvanceCard = (card, player) => {
+        const oldPos = player.position;
+
+        // Find the target property by name
+        const allDeeds = [
+            ...this.game.deeds.regular,
+            ...this.game.deeds.trainStations,
+            ...this.game.deeds.utilities
+        ];
+
+        let target = null;
+        for (const deed of allDeeds) {
+            if (card.includes(deed.title)) {
+                target = deed;
+                break;
+            }
+        }
+
+        if (target) {
+            player.position = target.position;
+            const passedGo = target.position < oldPos;
+            if (passedGo) {
+                this.autoTransferMoney(1, player.id, 200);
+                this.sendLog(player.name + " passed GO and collected $200");
+            }
+            this.sendLog(player.name + " advanced to " + target.title);
+            this.ws.broadcast(JSON.stringify({type: 'playerMoved', playerId: player.id, from: oldPos, to: player.position, passedGo: passedGo}));
+            this.handleLanding(player, player.position);
+        } else {
+            this.game.turnPhase = 'done';
+            this.sendToWs();
+            this.endTurn();
+        }
+    }
+
+    handleAdvanceToNearest = (card, player) => {
+        const oldPos = player.position;
+        const text = card.toLowerCase();
+        let positions;
+        let doubleRent = false;
+
+        if (text.includes('station')) {
+            positions = this.game.deeds.trainStations.map(s => s.position);
+            doubleRent = text.includes('twice the rent');
+        } else {
+            positions = this.game.deeds.utilities.map(u => u.position);
+        }
+
+        // Find nearest ahead
+        let nearest = null;
+        let minDist = 41;
+        for (const pos of positions) {
+            const dist = (pos - oldPos + 40) % 40;
+            if (dist > 0 && dist < minDist) {
+                minDist = dist;
+                nearest = pos;
+            }
+        }
+
+        if (nearest !== null) {
+            player.position = nearest;
+            const passedGo = nearest < oldPos;
+            if (passedGo) {
+                this.autoTransferMoney(1, player.id, 200);
+                this.sendLog(player.name + " passed GO and collected $200");
+            }
+
+            const deed = [...this.game.deeds.trainStations, ...this.game.deeds.utilities].find(d => d.position === nearest);
+            this.sendLog(player.name + " advanced to " + (deed ? deed.title : "position " + nearest));
+            this.ws.broadcast(JSON.stringify({type: 'playerMoved', playerId: player.id, from: oldPos, to: player.position, passedGo: passedGo}));
+
+            // If owned by another and double rent from community card
+            if (deed && deed.owner !== "1" && deed.owner != player.id && !deed.mortgaged && doubleRent) {
+                const deedType = this.game.deeds.trainStations.find(d => d.position === nearest) ? 'trainStations' : 'utilities';
+                const rent = this.calculateRent(deed, deedType) * 2;
+                const owner = this.getPlayerFromId(deed.owner);
+                this.autoTransferMoney(player.id, deed.owner, rent);
+                this.sendLog(player.name + " paid $" + rent + " (double rent) to " + owner.name);
+                this.ws.broadcast(JSON.stringify({type: 'rentPaid', fromPlayer: player.id, fromName: player.name, toPlayer: deed.owner, toName: owner.name, amount: rent, property: deed.title}));
+                this.game.turnPhase = 'done';
+                this.sendToWs();
+                this.endTurn();
+            } else if (deed && deed.owner !== "1" && deed.owner != player.id && text.includes('10x')) {
+                // Utility: pay 10x dice
+                const diceTotal = this.game.dice[0] + this.game.dice[1];
+                const rent = diceTotal * 10;
+                const owner = this.getPlayerFromId(deed.owner);
+                this.autoTransferMoney(player.id, deed.owner, rent);
+                this.sendLog(player.name + " paid $" + rent + " to " + owner.name);
+                this.game.turnPhase = 'done';
+                this.sendToWs();
+                this.endTurn();
+            } else {
+                this.handleLanding(player, player.position);
+            }
+        } else {
+            this.game.turnPhase = 'done';
+            this.sendToWs();
+            this.endTurn();
+        }
     }
 
     logFile = require('path').join(__dirname, '..', 'static', 'logs.txt');

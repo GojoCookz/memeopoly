@@ -1,0 +1,14 @@
+{
+  "name": "memeopoly",
+  "version": "1.0.0",
+  "description": "Memeopoly - A meme-powered multiplayer board game with $MEMO tokens",
+  "scripts": {
+    "build": "cd game/client && npm install && npm run build",
+    "start": "cd game && HTTP=true node server/server.js",
+    "postinstall": "cd game && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}

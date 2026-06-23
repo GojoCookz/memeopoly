@@ -468,12 +468,50 @@ export default class App extends React.Component {
                         <Players game={this.state.game}/>
                         <div className="sidebar-section sidebar-logs">
                             <div className="sidebar-tabs">
-                                <button className={"stab" + (this.state.sidebarTab !== 'chat' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'logs'})}>Logs</button>
+                                <button className={"stab" + (this.state.sidebarTab === 'logs' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'logs'})}>Logs</button>
                                 <button className={"stab" + (this.state.sidebarTab === 'chat' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'chat'})}>Chat</button>
+                                <button className={"stab" + (this.state.sidebarTab === 'props' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'props'})}>Props</button>
                             </div>
-                            {this.state.sidebarTab !== 'chat' ? (
+                            {this.state.sidebarTab === 'logs' ? (
                                 <div className="sidebar-log-content" id="log-box">
                                     {this.state.logs.map((l, i) => <p key={i}>{l}</p>)}
+                                </div>
+                            ) : this.state.sidebarTab === 'props' ? (
+                                <div className="sidebar-props-content">
+                                    {this.state.game && gameService.currentPlayer && (() => {
+                                        const myId = gameService.currentPlayer;
+                                        const game = this.state.game;
+                                        const myDeeds = game.deeds.regular.filter(d => d.owner === myId);
+                                        const myRailroads = game.deeds.railroad.filter(d => d.owner === myId);
+                                        const myUtilities = game.deeds.utility.filter(d => d.owner === myId);
+                                        const isPreRoll = game.currentTurn === myId && game.turnPhase === 'pre-roll';
+                                        if (myDeeds.length === 0 && myRailroads.length === 0 && myUtilities.length === 0) {
+                                            return <div className="props-empty">No properties yet</div>;
+                                        }
+                                        return <div className="props-list">
+                                            {myDeeds.map(d => {
+                                                const canBuild = gameService.canBuyHouse(d, game);
+                                                return <div key={d.title} className="prop-row" style={{borderLeft: '4px solid ' + d.color}}>
+                                                    <span className="prop-name">{d.title}</span>
+                                                    <span className="prop-houses">
+                                                        {d.hotel > 0 ? 'H' : d.houses > 0 ? d.houses + 'h' : ''}
+                                                    </span>
+                                                    {canBuild && d.houses < 4 && d.hotel === 0 && (
+                                                        <button className="prop-build-btn" onClick={() => gameService.addHouse(d.title)}>+H</button>
+                                                    )}
+                                                    {canBuild && d.houses === 4 && d.hotel === 0 && (
+                                                        <button className="prop-build-btn hotel" onClick={() => gameService.addHotel(d.title)}>+Hotel</button>
+                                                    )}
+                                                </div>;
+                                            })}
+                                            {myRailroads.map(d => <div key={d.title} className="prop-row" style={{borderLeft: '4px solid #666'}}>
+                                                <span className="prop-name">{d.title}</span>
+                                            </div>)}
+                                            {myUtilities.map(d => <div key={d.title} className="prop-row" style={{borderLeft: '4px solid #888'}}>
+                                                <span className="prop-name">{d.title}</span>
+                                            </div>)}
+                                        </div>;
+                                    })()}
                                 </div>
                             ) : (
                                 <div className="sidebar-chat-content">

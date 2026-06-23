@@ -252,6 +252,68 @@ h3 {
   }
 }
 
+.sidebar-props-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.props-empty {
+  color: @textMuted;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.props-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 4px;
+
+  .prop-name {
+    flex: 1;
+    font-size: 11px;
+    color: @textMuted;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .prop-houses {
+    font-size: 10px;
+    color: #fbbf24;
+    font-weight: bold;
+    min-width: 16px;
+    text-align: center;
+  }
+
+  .prop-build-btn {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 4px;
+    font-size: 10px;
+    padding: 2px 6px;
+    cursor: pointer;
+    &:hover { background: rgba(34, 197, 94, 0.4); }
+    &.hotel {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.3);
+      &:hover { background: rgba(239, 68, 68, 0.4); }
+    }
+  }
+}
+
 .sidebar-chat-content {
   flex: 1;
   display: flex;

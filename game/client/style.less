@@ -52,10 +52,12 @@ h3 {
 
 .game {
   display: grid;
-  grid-template-areas: 'board board players logs' 'board board players video' 'board board players video' 'board board players video';
-  grid-template-columns: repeat(2, calc(@boardWidth / 2)) repeat(2, 1fr);
-  grid-template-rows: repeat(4, calc(@boardWidth / 4));
-  margin-top: 48px;
+  grid-template-areas: 'board sidebar';
+  grid-template-columns: @boardWidth 1fr;
+  grid-template-rows: 1fr;
+  margin-top: 88px;
+  height: calc(100vh - 88px);
+  overflow: hidden;
 }
 
 .game-loading {
@@ -165,42 +167,198 @@ h3 {
 }
 
 .logs {
-  grid-area: logs;
+  display: none;
+}
+
+
+.game-sidebar {
+  grid-area: sidebar;
   background: @bgPanel;
   border-left: 1px solid @borderGlow;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: calc(100vh - 88px);
+}
 
-  h3 { color: @accentCyan; }
+.player-list {
+  padding: 10px 12px;
+  color: @textMain;
+  border-bottom: 1px solid @borderGlow;
+  background: transparent;
+  flex-shrink: 0;
 
-  .text {
-    height: 150px;
-    overflow-y: auto;
+  h3 { margin: 0 0 6px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 
-    p {
-      margin: 0;
-      font-size: 14px;
-      color: @textMuted;
+  .player-tabs {
+    .player {
+      padding: 5px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      margin-bottom: 2px;
+      &:hover { background: rgba(255,255,255,0.05); }
     }
   }
 }
 
+.sidebar-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
 
-.player-list {
-  grid-area: players;
-  width: 400px;
-  background: @bgPanel;
-  border-left: 1px solid @borderGlow;
-  padding: 10px;
-  color: @textMain;
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid @borderGlow;
+  flex-shrink: 0;
+
+  .stab {
+    flex: 1;
+    padding: 8px;
+    background: none;
+    border: none;
+    color: @textMuted;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+
+    &.active {
+      color: @accentCyan;
+      border-bottom-color: @accentCyan;
+      background: rgba(56,189,248,0.05);
+    }
+    &:hover { color: @textMain; }
+  }
+}
+
+.sidebar-log-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+
+  p {
+    margin: 0;
+    font-size: 11px;
+    color: @textMuted;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    line-height: 1.4;
+  }
+}
+
+.sidebar-chat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.sidebar-chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+
+  p {
+    margin: 0;
+    font-size: 12px;
+    color: @textMuted;
+    padding: 3px 0;
+  }
+}
+
+.sidebar-chat-input {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid @borderGlow;
+  flex-shrink: 0;
+
+  input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid @borderGlow;
+    border-radius: 4px;
+    color: @textMain;
+    padding: 6px 10px;
+    font-size: 12px;
+    outline: none;
+    &:focus { border-color: @accentCyan; }
+  }
+
+  button {
+    background: @accentCyan;
+    color: @bgDark;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    &:hover { opacity: 0.85; }
+  }
+}
+
+// Game toolbar (below nav, above board)
+.game-toolbar {
+  position: fixed;
+  top: 44px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: rgba(15, 15, 30, 0.95);
+  border-bottom: 1px solid @borderGlow;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  z-index: 50;
+
+  .gt-leave {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #ef4444;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    &:hover { background: rgba(239,68,68,0.3); }
+  }
+
+  .gt-room {
+    color: @textMuted;
+    font-size: 12px;
+  }
+
+  .gt-share {
+    background: rgba(56,189,248,0.12);
+    border: 1px solid rgba(56,189,248,0.25);
+    color: @accentCyan;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    &:hover { background: rgba(56,189,248,0.25); }
+  }
+
+  .gt-spacer { flex: 1; }
+
+  .npc-menu-wrapper {
+    position: relative;
+    top: auto;
+    right: auto;
+    z-index: auto;
+  }
 }
 
 .video-chat {
-  grid-area: video;
-  background: @bgPanel;
-  border-left: 1px solid @borderGlow;
-  padding: 10px;
-
-  .chat p { color: @textMuted; }
+  display: none;
 }
 
 .me {
@@ -1142,31 +1300,34 @@ h3 {
 // Notification Toast
 .notification-container {
   position: fixed;
-  top: 60px;
-  right: 20px;
+  top: 92px;
+  right: 16px;
   z-index: 300;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  max-width: 280px;
+  pointer-events: none;
 }
 
 .notification-toast {
-  background: @bgPanel;
+  background: rgba(15, 15, 30, 0.92);
+  backdrop-filter: blur(10px);
   border: 1px solid @borderGlow;
-  border-radius: 6px;
-  padding: 12px 20px;
-  min-width: 250px;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 15px rgba(56, 189, 248, 0.15);
   animation: slideIn 0.3s ease-out;
   color: @textMain;
-  font-size: 14px;
+  font-size: 12px;
+  pointer-events: auto;
 
   &.success { border-left: 3px solid @accentGreen; }
   &.info { border-left: 3px solid @accentCyan; }
   &.warning { border-left: 3px solid #f59e0b; }
   &.reward { border-left: 3px solid #a855f7; }
 
-  .toast-title { font-weight: bold; color: @accentCyan; font-size: 13px; margin-bottom: 4px; }
+  .toast-title { font-weight: bold; color: @accentCyan; font-size: 11px; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
 }
 
 // Wallet Connect
@@ -1487,31 +1648,9 @@ h3 {
   }
 }
 
-// Leave room + room badge
-.leave-room-btn {
-  position: fixed;
-  top: 10px;
-  left: 180px;
-  z-index: 1000;
-  padding: 6px 14px;
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: bold;
-  &:hover { background: rgba(239, 68, 68, 0.35); }
-}
-
-.room-badge {
-  position: fixed;
-  top: 14px;
-  left: 290px;
-  z-index: 1000;
-  color: @textMuted;
-  font-size: 12px;
-}
+// Leave room + room badge (now in .game-toolbar)
+.leave-room-btn { display: none; }
+.room-badge { display: none; }
 
 // Skin customization
 .skin-tabs {
@@ -2167,30 +2306,8 @@ h3 {
 .lb-value { color: #38bdf8; font-size: 13px; }
 .lb-empty { color: #64748b; font-size: 13px; text-align: center; }
 
-// --- Share room button ---
-.share-room-btn {
-  position: absolute;
-  top: 58px;
-  right: 16px;
-  background: rgba(56,189,248,0.15);
-  border: 1px solid rgba(56,189,248,0.3);
-  color: #38bdf8;
-  padding: 4px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  z-index: 100;
-
-  &:hover { background: rgba(56,189,248,0.25); }
-}
-
-// NPC menu
-.npc-menu-wrapper {
-  position: absolute;
-  top: 58px;
-  right: 90px;
-  z-index: 100;
-}
+// --- Share room button (now in toolbar) ---
+.share-room-btn { display: none; }
 
 .npc-add-btn {
   background: rgba(168,85,247,0.15);
@@ -2230,8 +2347,8 @@ h3 {
   }
 }
 
-// Offset game content below nav
-.game, .room-lobby {
+// Offset game content below nav + toolbar
+.room-lobby {
   margin-top: 48px;
 }
 

@@ -55,7 +55,8 @@ export default class App extends React.Component {
             showNPCMenu: false,
             // Auction system
             auction: null,
-            auctionTimer: null
+            auctionTimer: null,
+            sidebarTab: 'logs'
         };
     }
 
@@ -431,26 +432,50 @@ export default class App extends React.Component {
                 />
                 <WalletConnect onNotify={this.addNotification}/>
                 <Notifications notifications={this.state.notifications}/>
-                <button className="leave-room-btn" onClick={this.leaveRoom}>Leave Room</button>
-                <span className="room-badge">Room: {this.state.roomId}</span>
-                <button className="share-room-btn" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i> Share</button>
-                <div className="npc-menu-wrapper">
-                    <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>
-                        + Add NPC
-                    </button>
-                    {this.state.showNPCMenu && <div className="npc-dropdown">
-                        <button onClick={() => { gameService.addNPC('easy'); this.setState({showNPCMenu: false}); }}>Easy</button>
-                        <button onClick={() => { gameService.addNPC('medium'); this.setState({showNPCMenu: false}); }}>Medium</button>
-                        <button onClick={() => { gameService.addNPC('hard'); this.setState({showNPCMenu: false}); }}>Hard</button>
-                    </div>}
+                <div className="game-toolbar">
+                    <button className="gt-leave" onClick={this.leaveRoom}>Leave</button>
+                    <span className="gt-room">Room: {this.state.roomId}</span>
+                    <button className="gt-share" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i> Share</button>
+                    <div className="gt-spacer"></div>
+                    <div className="npc-menu-wrapper">
+                        <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>
+                            + NPC
+                        </button>
+                        {this.state.showNPCMenu && <div className="npc-dropdown">
+                            <button onClick={() => { gameService.addNPC('easy'); this.setState({showNPCMenu: false}); }}>Easy</button>
+                            <button onClick={() => { gameService.addNPC('medium'); this.setState({showNPCMenu: false}); }}>Medium</button>
+                            <button onClick={() => { gameService.addNPC('hard'); this.setState({showNPCMenu: false}); }}>Hard</button>
+                        </div>}
+                    </div>
                 </div>
                 <Settings game={this.state.game} logs={this.state.logs} chat={this.state.chat}
                           showHelp={this.showHelp}/>
                 <div className="game">
                     <Board game={this.state.game} ref={ref => this.boardRef = ref}/>
-                    <Logs logs={this.state.logs}/>
-                    <Video game={this.state.game} chat={this.state.chat}/>
-                    <Players game={this.state.game}/>
+                    <div className="game-sidebar">
+                        <Players game={this.state.game}/>
+                        <div className="sidebar-section sidebar-logs">
+                            <div className="sidebar-tabs">
+                                <button className={"stab" + (this.state.sidebarTab !== 'chat' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'logs'})}>Logs</button>
+                                <button className={"stab" + (this.state.sidebarTab === 'chat' ? " active" : "")} onClick={() => this.setState({sidebarTab: 'chat'})}>Chat</button>
+                            </div>
+                            {this.state.sidebarTab !== 'chat' ? (
+                                <div className="sidebar-log-content" id="log-box">
+                                    {this.state.logs.map((l, i) => <p key={i}>{l}</p>)}
+                                </div>
+                            ) : (
+                                <div className="sidebar-chat-content">
+                                    <div className="sidebar-chat-msgs" id="chat-box">
+                                        {this.state.chat.map((l, i) => <p key={i}>{l}</p>)}
+                                    </div>
+                                    <div className="sidebar-chat-input">
+                                        <input type="text" placeholder="Type..." onKeyDown={(e) => { if (e.key === 'Enter' && e.target.value) { gameService.sendToWs('chat', {message: e.target.value}); e.target.value = ''; }}}/>
+                                        <button onClick={(e) => { const inp = e.target.parentElement.querySelector('input'); if (inp.value) { gameService.sendToWs('chat', {message: inp.value}); inp.value = ''; }}}>Send</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
                 {this.state.showHelp && <HelpDialog dismiss={this.hideHelp}/>}
                 {!this.state.showHelp && this.state.showTutorial && <Tutorial onClose={this.closeTutorial}/>}

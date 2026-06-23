@@ -779,12 +779,17 @@ export default class App extends React.Component {
                                 <span className="mbn-go-text">GO</span>
                                 <span className="mbn-go-multi">x5</span>
                             </button>
-                            <div className="mbn-roll-info">
-                                <div className="mbn-roll-bar">
-                                    <div className="mbn-roll-fill" style={{width: '85%'}}></div>
-                                </div>
-                                <span className="mbn-roll-text">68/80 -- 8 Rolls in 07:50</span>
-                            </div>
+                            {(() => {
+                                const myId = gameService.currentPlayer;
+                                const myXP = this.state.xpData[myId] || {xp: 0, level: 1, nextLevelXP: 100};
+                                const pct = myXP.nextLevelXP > 0 ? Math.min(100, Math.floor((myXP.xp / myXP.nextLevelXP) * 100)) : 0;
+                                return <div className="mbn-roll-info">
+                                    <div className="mbn-roll-bar">
+                                        <div className="mbn-roll-fill" style={{width: pct + '%'}}></div>
+                                    </div>
+                                    <span className="mbn-roll-text">Lv.{myXP.level} -- {myXP.xp}/{myXP.nextLevelXP} XP</span>
+                                </div>;
+                            })()}
                         </div>
                         <button className={"mbn-btn" + (this.state.mobilePanel === 'album' ? " active" : "")}
                             onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'album' ? null : 'album'})}>

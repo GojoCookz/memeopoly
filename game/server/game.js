@@ -1540,7 +1540,7 @@ class GameService {
                 this.game.lastRoll = null;
             } else {
                 this.sendLog(player.name + " rolled doubles! Rolling again...");
-                    this.awardXP(this.game.currentTurn, GameService.XP_REWARDS.rollDoubles, 'rolled doubles');
+                this.awardXP(this.game.currentTurn, GameService.XP_REWARDS.rollDoubles, 'rolled doubles');
                 this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: this.game.currentTurn}));
                 this.sendToWs();
                 if (player.isNPC) {

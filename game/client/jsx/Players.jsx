@@ -18,11 +18,12 @@ export default class Players extends React.Component {
                     const isCurrentTurn = this.props.game.currentTurn === p.id;
                     return <div key={p.id}
                                 onClick={() => this.setState({selected: p.id})}
-                                className={"player " + (isCurrentTurn ? "current-turn" : "")}>
+                                className={"player " + (isCurrentTurn ? "current-turn" : "") + (p.bankrupt ? " bankrupt" : "")}>
                         {isCurrentTurn && <span className="turn-arrow">&#9658; </span>}
                         <Token token={p.token} selected={p.id === selected} customImage={p.customImage} color={p.tokenColor}/>
                         {p.name}
-                        {p.inJail && <span className="jail-badge"> (JAIL)</span>}
+                        {p.bankrupt && <span className="bankrupt-badge"> REKT</span>}
+                        {!p.bankrupt && p.inJail && <span className="jail-badge"> (JAIL)</span>}
                         {p.position !== undefined && p.id !== 1 && <span className="position-badge"> [{p.position}]</span>}
                     </div>
                 })}

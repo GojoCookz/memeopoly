@@ -1368,9 +1368,17 @@ class GameService {
     // ========== TURN SYSTEM ==========
 
     startTurn = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (player && player.bankrupt) {
+            const currentIndex = this.game.turnOrder.indexOf(playerId);
+            const nextIndex = (currentIndex + 1) % this.game.turnOrder.length;
+            if (this.game.turnOrder[nextIndex] !== playerId) {
+                this.startTurn(this.game.turnOrder[nextIndex]);
+            }
+            return;
+        }
         this.game.currentTurn = playerId;
         this.game.doublesCount = 0;
-        const player = this.getPlayerFromId(playerId);
         this.sendLog("It's " + player.name + "'s turn!");
 
         // NPC auto-play: skip pre-roll phase
@@ -1594,6 +1602,38 @@ class GameService {
         const toSum = this.calculateNotesSum(toPlayer.notes);
         this.sendLog(fromPlayer.name + " new balance: $" + fromSum);
         this.sendLog(toPlayer.name + " new balance: $" + toSum);
+
+        if (fromSum <= 0 && fromId !== 1) {
+            this.bankruptPlayer(fromId);
+        }
+    }
+
+    bankruptPlayer = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || player.bankrupt) return;
+        player.bankrupt = true;
+        this.sendLog("BANKRUPT: " + player.name + " is eliminated!");
+        this.ws.broadcast(JSON.stringify({type: 'bankrupt', playerId: playerId, playerName: player.name}));
+
+        // Transfer all properties back to bank
+        ['regular', 'railroad', 'utility'].forEach(type => {
+            this.game.deeds[type].filter(d => d.owner === playerId).forEach(d => {
+                this.transferDeed(d.title, type, 1, playerId);
+            });
+        });
+
+        // Remove from turn order
+        const idx = this.game.turnOrder.indexOf(playerId);
+        if (idx !== -1) this.game.turnOrder.splice(idx, 1);
+
+        // Check for winner
+        const activePlayers = this.game.turnOrder.filter(id => id !== 1);
+        if (activePlayers.length === 1) {
+            const winner = this.getPlayerFromId(activePlayers[0]);
+            this.sendLog("GAME OVER: " + winner.name + " wins!");
+            this.game.winner = activePlayers[0];
+            this.ws.broadcast(JSON.stringify({type: 'gameOver', winnerId: activePlayers[0], winnerName: winner.name}));
+        }
     }
 
     handleBuyProperty = (playerId) => {

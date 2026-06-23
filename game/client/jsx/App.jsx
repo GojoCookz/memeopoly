@@ -298,8 +298,15 @@ export default class App extends React.Component {
             } else {
                 this.addNotification('No bids for ' + data.property, 'info', 'Auction Over');
             }
+        } else if (data.type === 'bankrupt') {
+            soundManager.play('jail');
+            this.addNotification(data.playerName + ' went BANKRUPT!', 'warning', 'Bankrupt');
+        } else if (data.type === 'gameOver') {
+            soundManager.play('fanfare');
+            this.setState({winner: {id: data.winnerId, name: data.winnerName}});
         } else if (data.type === 'newGame') {
             gameService.currentPlayer = null;
+            this.setState({winner: null});
         } else {
             rtcService.gotMessageFromServer(message);
         }
@@ -537,6 +544,15 @@ export default class App extends React.Component {
                     <div className="jailed-overlay">
                         <h2>RUGGED!</h2>
                         <p>Go to Jail!</p>
+                    </div>
+                </div>}
+                {this.state.winner && <div className="card-overlay winner-overlay">
+                    <div className="winner-modal">
+                        <div className="winner-crown">&#x1F451;</div>
+                        <h2>GAME OVER</h2>
+                        <p className="winner-name">{this.state.winner.name}</p>
+                        <p className="winner-subtitle">MEME LORD SUPREME</p>
+                        <button className="winner-btn" onClick={() => this.setState({winner: null})}>GG</button>
                     </div>
                 </div>}
             </div>);

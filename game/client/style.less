@@ -55,8 +55,8 @@ h3 {
   grid-template-areas: 'board sidebar';
   grid-template-columns: @boardWidth 1fr;
   grid-template-rows: 1fr;
-  margin-top: 88px;
-  height: calc(100vh - 88px);
+  margin-top: 136px;
+  height: calc(100vh - 136px);
   overflow: hidden;
 }
 
@@ -192,11 +192,23 @@ h3 {
 
   .player-tabs {
     .player {
-      padding: 5px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      margin-bottom: 2px;
+      padding: 6px 10px;
+      font-size: 13px;
+      border-radius: 6px;
+      margin-bottom: 3px;
+      border-left: 3px solid transparent;
+      transition: all 0.2s ease;
       &:hover { background: rgba(255,255,255,0.05); }
+      &.current-turn {
+        background: rgba(0, 229, 255, 0.08);
+        border-left-color: @accentCyan;
+        font-weight: 600;
+        box-shadow: 0 0 8px rgba(0, 229, 255, 0.1);
+      }
+      &.bankrupt {
+        opacity: 0.4;
+        text-decoration: line-through;
+      }
     }
   }
 }
@@ -444,6 +456,137 @@ h3 {
     right: auto;
     z-index: auto;
   }
+}
+
+// ========== TURN BANNER ==========
+.turn-banner {
+  position: fixed;
+  top: 84px;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: rgba(15, 15, 30, 0.92);
+  border-bottom: 2px solid rgba(100, 100, 140, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 49;
+  transition: all 0.3s ease;
+
+  &.my-turn {
+    background: linear-gradient(90deg, rgba(0, 229, 255, 0.08) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(0, 229, 255, 0.08) 100%);
+    border-bottom-color: @accentCyan;
+    animation: turnBannerGlow 2s ease-in-out infinite;
+  }
+
+  &.action-needed .turn-banner-action {
+    color: #fbbf24;
+    font-weight: 700;
+  }
+
+  &.rolling .turn-banner-action {
+    color: @accentCyan;
+  }
+
+  &.auction .turn-banner-action {
+    color: #f97316;
+    font-weight: 700;
+  }
+
+  .turn-banner-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 700px;
+    width: 100%;
+    padding: 0 20px;
+  }
+
+  .turn-banner-token {
+    flex-shrink: 0;
+  }
+
+  .turn-token-dot {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.3);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+  }
+
+  .turn-banner-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  .turn-banner-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: @textMain;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .my-turn & .turn-banner-name {
+    color: @accentCyan;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+  }
+
+  .turn-banner-action {
+    font-size: 11px;
+    color: @textMuted;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .turn-banner-roll-btn {
+    flex-shrink: 0;
+    background: linear-gradient(135deg, @accentCyan, #a855f7);
+    color: white;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    animation: rollBtnPulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+    &:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
+    }
+  }
+
+  .turn-banner-timer {
+    flex-shrink: 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: @accentCyan;
+    font-variant-numeric: tabular-nums;
+    padding: 4px 10px;
+    background: rgba(56, 189, 248, 0.1);
+    border-radius: 6px;
+    &.urgent {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.15);
+      animation: timerPulse 0.5s ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes turnBannerGlow {
+  0%, 100% { border-bottom-color: @accentCyan; }
+  50% { border-bottom-color: #a855f7; }
+}
+
+@keyframes rollBtnPulse {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); }
+  50% { box-shadow: 0 0 30px rgba(0, 229, 255, 0.6), 0 0 60px rgba(168, 85, 247, 0.2); }
 }
 
 .video-chat {

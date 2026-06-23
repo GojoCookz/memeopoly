@@ -390,6 +390,66 @@ export default class App extends React.Component {
         }
     }
 
+    renderTurnBanner = () => {
+        const game = this.state.game;
+        if (!game || !game.currentTurn || !gameService.currentPlayer) return null;
+        const currentPlayer = game.players.find(p => p.id === game.currentTurn);
+        if (!currentPlayer || currentPlayer.id === 1) return null;
+        const isMyTurn = game.currentTurn === gameService.currentPlayer;
+        const phase = game.turnPhase;
+
+        let actionText = '';
+        let actionClass = '';
+        if (currentPlayer.bankrupt) {
+            actionText = 'ELIMINATED';
+            actionClass = 'bankrupt';
+        } else if (phase === 'pre-roll') {
+            actionText = isMyTurn ? 'YOUR TURN - BUILD OR ROLL!' : 'Deciding...';
+            actionClass = isMyTurn ? 'action-needed' : '';
+        } else if (phase === 'rolling' || phase === 'moving') {
+            actionText = 'Rolling...';
+            actionClass = 'rolling';
+        } else if (phase === 'action') {
+            actionText = isMyTurn ? 'CHOOSE AN ACTION' : 'Choosing...';
+            actionClass = isMyTurn ? 'action-needed' : '';
+        } else if (phase === 'done') {
+            actionText = 'Turn ending...';
+        } else {
+            actionText = phase || '';
+        }
+
+        if (this.state.buyOffer && isMyTurn) {
+            actionText = 'BUY OR PASS?';
+            actionClass = 'action-needed';
+        }
+        if (this.state.auction) {
+            actionText = 'AUCTION IN PROGRESS';
+            actionClass = 'auction';
+        }
+
+        return (
+            <div className={"turn-banner" + (isMyTurn ? " my-turn" : "") + (actionClass ? " " + actionClass : "")}>
+                <div className="turn-banner-inner">
+                    <div className="turn-banner-token">
+                        <span className="turn-token-dot" style={{background: currentPlayer.tokenColor || '#00e5ff'}}></span>
+                    </div>
+                    <div className="turn-banner-info">
+                        <span className="turn-banner-name">{isMyTurn ? 'YOUR TURN' : currentPlayer.name + "'s turn"}</span>
+                        <span className="turn-banner-action">{actionText}</span>
+                    </div>
+                    {isMyTurn && phase === 'pre-roll' && (
+                        <button className="turn-banner-roll-btn" onClick={() => gameService.readyToRoll()}>
+                            ROLL DICE
+                        </button>
+                    )}
+                    {this.state.turnTimer > 0 && (
+                        <span className={"turn-banner-timer" + (this.state.turnTimer <= 10 ? " urgent" : "")}>{this.state.turnTimer}s</span>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     render() {
         const {view, account, connected, lostConnection} = this.state;
 
@@ -504,6 +564,7 @@ export default class App extends React.Component {
                 </div>
                 <Settings game={this.state.game} logs={this.state.logs} chat={this.state.chat}
                           showHelp={this.showHelp}/>
+                {this.renderTurnBanner()}
                 <div className="game">
                     <Board game={this.state.game} diceSkin={this.state.diceSkin} ref={ref => this.boardRef = ref}/>
                     <div className="game-sidebar">

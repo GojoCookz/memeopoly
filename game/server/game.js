@@ -865,6 +865,15 @@ class GameService {
             case 'readyToRoll':
                 this.handleReadyToRoll(from);
                 break;
+            case 'tradeOffer':
+                this.handleTradeOffer(from, params);
+                break;
+            case 'tradeAccept':
+                this.handleTradeAccept(from);
+                break;
+            case 'tradeDecline':
+                this.handleTradeDecline(from);
+                break;
         }
 
         return {type: 'game', game: this.game};
@@ -2063,6 +2072,108 @@ class GameService {
             this.sendToWs();
             this.endTurn();
         }
+    }
+
+    // ========== TRADE SYSTEM ==========
+
+    pendingTrade = null;
+    tradeTimeout = null;
+
+    handleTradeOffer = (fromId, params) => {
+        if (this.pendingTrade) {
+            this.sendLog("A trade is already pending");
+            return;
+        }
+        const from = this.getPlayerFromId(fromId);
+        const to = this.getPlayerFromId(params.toPlayerId);
+        if (!from || !to || to.id === 1) return;
+
+        const offerProps = (params.offerProperties || []).filter(p => {
+            const deed = this.game.deeds.regular.find(d => d.title === p) ||
+                         this.game.deeds.railroad.find(d => d.title === p) ||
+                         this.game.deeds.utility.find(d => d.title === p);
+            return deed && deed.owner === fromId;
+        });
+        const wantProps = (params.wantProperties || []).filter(p => {
+            const deed = this.game.deeds.regular.find(d => d.title === p) ||
+                         this.game.deeds.railroad.find(d => d.title === p) ||
+                         this.game.deeds.utility.find(d => d.title === p);
+            return deed && deed.owner === params.toPlayerId;
+        });
+        const offerMoney = Math.max(0, parseInt(params.offerMoney) || 0);
+        const wantMoney = Math.max(0, parseInt(params.wantMoney) || 0);
+
+        if (offerProps.length === 0 && wantProps.length === 0 && offerMoney === 0 && wantMoney === 0) {
+            this.sendLog("Trade must include at least one item");
+            return;
+        }
+
+        this.pendingTrade = {
+            fromId, toPlayerId: params.toPlayerId,
+            offerProperties: offerProps, wantProperties: wantProps,
+            offerMoney, wantMoney
+        };
+
+        this.sendLog(from.name + " offered a trade to " + to.name);
+        this.ws.broadcast(JSON.stringify({
+            type: 'tradeOffer',
+            fromId, fromName: from.name,
+            toPlayerId: params.toPlayerId, toName: to.name,
+            offerProperties: offerProps, wantProperties: wantProps,
+            offerMoney, wantMoney
+        }));
+
+        this.tradeTimeout = setTimeout(() => {
+            if (this.pendingTrade) {
+                this.sendLog("Trade expired");
+                this.ws.broadcast(JSON.stringify({type: 'tradeExpired'}));
+                this.pendingTrade = null;
+            }
+        }, 30000);
+    }
+
+    handleTradeAccept = (fromId) => {
+        if (!this.pendingTrade || this.pendingTrade.toPlayerId !== fromId) return;
+        clearTimeout(this.tradeTimeout);
+        const trade = this.pendingTrade;
+        this.pendingTrade = null;
+
+        const from = this.getPlayerFromId(trade.fromId);
+        const to = this.getPlayerFromId(trade.toPlayerId);
+
+        // Transfer properties
+        trade.offerProperties.forEach(title => {
+            ['regular', 'railroad', 'utility'].forEach(type => {
+                const deed = this.game.deeds[type].find(d => d.title === title);
+                if (deed && deed.owner === trade.fromId) {
+                    this.transferDeed(title, type, trade.toPlayerId, trade.fromId);
+                }
+            });
+        });
+        trade.wantProperties.forEach(title => {
+            ['regular', 'railroad', 'utility'].forEach(type => {
+                const deed = this.game.deeds[type].find(d => d.title === title);
+                if (deed && deed.owner === trade.toPlayerId) {
+                    this.transferDeed(title, type, trade.fromId, trade.toPlayerId);
+                }
+            });
+        });
+
+        if (trade.offerMoney > 0) this.autoTransferMoney(trade.fromId, trade.toPlayerId, trade.offerMoney);
+        if (trade.wantMoney > 0) this.autoTransferMoney(trade.toPlayerId, trade.fromId, trade.wantMoney);
+
+        this.sendLog("TRADE COMPLETE: " + from.name + " and " + to.name + " made a deal!");
+        this.ws.broadcast(JSON.stringify({type: 'tradeComplete', fromName: from.name, toName: to.name}));
+        this.sendToWs();
+    }
+
+    handleTradeDecline = (fromId) => {
+        if (!this.pendingTrade || this.pendingTrade.toPlayerId !== fromId) return;
+        clearTimeout(this.tradeTimeout);
+        const to = this.getPlayerFromId(fromId);
+        this.sendLog(to.name + " declined the trade");
+        this.ws.broadcast(JSON.stringify({type: 'tradeDeclined', playerName: to.name}));
+        this.pendingTrade = null;
     }
 
     // ========== NPC SYSTEM ==========

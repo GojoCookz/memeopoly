@@ -298,6 +298,23 @@ export default class App extends React.Component {
             } else {
                 this.addNotification('No bids for ' + data.property, 'info', 'Auction Over');
             }
+        } else if (data.type === 'tradeOffer') {
+            if (data.toPlayerId === gameService.currentPlayer) {
+                soundManager.play('click');
+                this.setState({incomingTrade: data});
+            } else if (data.fromId === gameService.currentPlayer) {
+                this.addNotification('Trade sent to ' + data.toName, 'info', 'Trade');
+            }
+        } else if (data.type === 'tradeComplete') {
+            soundManager.play('buy');
+            this.setState({incomingTrade: null, showTradeUI: false});
+            this.addNotification(data.fromName + ' and ' + data.toName + ' made a deal!', 'reward', 'Trade');
+        } else if (data.type === 'tradeDeclined') {
+            this.setState({incomingTrade: null});
+            this.addNotification(data.playerName + ' declined the trade', 'warning', 'Trade');
+        } else if (data.type === 'tradeExpired') {
+            this.setState({incomingTrade: null});
+            this.addNotification('Trade expired', 'info', 'Trade');
         } else if (data.type === 'bankrupt') {
             soundManager.play('jail');
             this.addNotification(data.playerName + ' went BANKRUPT!', 'warning', 'Bankrupt');
@@ -512,6 +529,11 @@ export default class App extends React.Component {
                                             </div>)}
                                         </div>;
                                     })()}
+                                    {this.state.game && gameService.currentPlayer && (
+                                        <button className="trade-open-btn" onClick={() => this.setState({showTradeUI: true})}>
+                                            Propose Trade
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="sidebar-chat-content">
@@ -593,6 +615,39 @@ export default class App extends React.Component {
                         <button className="winner-btn" onClick={() => this.setState({winner: null})}>GG</button>
                     </div>
                 </div>}
+                {this.state.showTradeUI && this.state.game && <TradeModal
+                    game={this.state.game}
+                    onClose={() => this.setState({showTradeUI: false})}
+                    onSubmit={(trade) => {
+                        gameService.proposeTrade(trade.toPlayerId, trade.offerProperties, trade.wantProperties, trade.offerMoney, trade.wantMoney);
+                        this.setState({showTradeUI: false});
+                    }}
+                />}
+                {this.state.incomingTrade && <div className="card-overlay">
+                    <div className="trade-incoming-modal">
+                        <h3>TRADE OFFER</h3>
+                        <p className="trade-from">{this.state.incomingTrade.fromName} wants to trade:</p>
+                        <div className="trade-columns">
+                            <div className="trade-col">
+                                <h4>They offer:</h4>
+                                {this.state.incomingTrade.offerProperties.map(p => <div key={p} className="trade-item">{p}</div>)}
+                                {this.state.incomingTrade.offerMoney > 0 && <div className="trade-item money">${this.state.incomingTrade.offerMoney}</div>}
+                                {this.state.incomingTrade.offerProperties.length === 0 && !this.state.incomingTrade.offerMoney && <div className="trade-item empty">Nothing</div>}
+                            </div>
+                            <div className="trade-arrow">&#x21C4;</div>
+                            <div className="trade-col">
+                                <h4>They want:</h4>
+                                {this.state.incomingTrade.wantProperties.map(p => <div key={p} className="trade-item">{p}</div>)}
+                                {this.state.incomingTrade.wantMoney > 0 && <div className="trade-item money">${this.state.incomingTrade.wantMoney}</div>}
+                                {this.state.incomingTrade.wantProperties.length === 0 && !this.state.incomingTrade.wantMoney && <div className="trade-item empty">Nothing</div>}
+                            </div>
+                        </div>
+                        <div className="trade-buttons">
+                            <button className="buy-btn" onClick={() => { gameService.acceptTrade(); this.setState({incomingTrade: null}); }}>Accept</button>
+                            <button className="decline-btn" onClick={() => { gameService.declineTrade(); this.setState({incomingTrade: null}); }}>Decline</button>
+                        </div>
+                    </div>
+                </div>}
             </div>);
         } else {
             return (<div className="game-loading">
@@ -602,4 +657,109 @@ export default class App extends React.Component {
         }
     }
 
+}
+
+class TradeModal extends React.Component {
+    constructor(props) {
+        super(props);
+        const myId = gameService.currentPlayer;
+        const game = props.game;
+        const otherPlayers = game.players.filter(p => p.id !== myId && p.id !== 1 && !p.bankrupt);
+        this.state = {
+            toPlayerId: otherPlayers.length > 0 ? otherPlayers[0].id : null,
+            offerSelected: {},
+            wantSelected: {},
+            offerMoney: 0,
+            wantMoney: 0
+        };
+    }
+
+    getAllDeeds = (ownerId) => {
+        const game = this.props.game;
+        return [
+            ...game.deeds.regular.filter(d => d.owner === ownerId),
+            ...game.deeds.railroad.filter(d => d.owner === ownerId),
+            ...game.deeds.utility.filter(d => d.owner === ownerId)
+        ];
+    }
+
+    toggleOffer = (title) => {
+        this.setState(prev => ({offerSelected: {...prev.offerSelected, [title]: !prev.offerSelected[title]}}));
+    }
+
+    toggleWant = (title) => {
+        this.setState(prev => ({wantSelected: {...prev.wantSelected, [title]: !prev.wantSelected[title]}}));
+    }
+
+    submit = () => {
+        const offerProperties = Object.keys(this.state.offerSelected).filter(k => this.state.offerSelected[k]);
+        const wantProperties = Object.keys(this.state.wantSelected).filter(k => this.state.wantSelected[k]);
+        this.props.onSubmit({
+            toPlayerId: this.state.toPlayerId,
+            offerProperties, wantProperties,
+            offerMoney: parseInt(this.state.offerMoney) || 0,
+            wantMoney: parseInt(this.state.wantMoney) || 0
+        });
+    }
+
+    render() {
+        const myId = gameService.currentPlayer;
+        const game = this.props.game;
+        const otherPlayers = game.players.filter(p => p.id !== myId && p.id !== 1 && !p.bankrupt);
+        const myDeeds = this.getAllDeeds(myId);
+        const theirDeeds = this.state.toPlayerId ? this.getAllDeeds(this.state.toPlayerId) : [];
+
+        return <div className="card-overlay">
+            <div className="trade-modal">
+                <h3>PROPOSE TRADE</h3>
+                <div className="trade-target">
+                    <label>Trade with:</label>
+                    <select value={this.state.toPlayerId || ''} onChange={e => this.setState({toPlayerId: e.target.value, wantSelected: {}})}>
+                        {otherPlayers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                <div className="trade-columns">
+                    <div className="trade-col">
+                        <h4>You offer:</h4>
+                        <div className="trade-deed-list">
+                            {myDeeds.map(d => <div key={d.title}
+                                className={"trade-deed-item" + (this.state.offerSelected[d.title] ? " selected" : "")}
+                                style={{borderLeft: '3px solid ' + (d.color || '#666')}}
+                                onClick={() => this.toggleOffer(d.title)}>
+                                {d.title}
+                            </div>)}
+                            {myDeeds.length === 0 && <div className="trade-empty">No properties</div>}
+                        </div>
+                        <div className="trade-money-row">
+                            <label>$</label>
+                            <input type="number" min="0" step="10" value={this.state.offerMoney}
+                                onChange={e => this.setState({offerMoney: e.target.value})}/>
+                        </div>
+                    </div>
+                    <div className="trade-arrow">&#x21C4;</div>
+                    <div className="trade-col">
+                        <h4>You want:</h4>
+                        <div className="trade-deed-list">
+                            {theirDeeds.map(d => <div key={d.title}
+                                className={"trade-deed-item" + (this.state.wantSelected[d.title] ? " selected" : "")}
+                                style={{borderLeft: '3px solid ' + (d.color || '#666')}}
+                                onClick={() => this.toggleWant(d.title)}>
+                                {d.title}
+                            </div>)}
+                            {theirDeeds.length === 0 && <div className="trade-empty">No properties</div>}
+                        </div>
+                        <div className="trade-money-row">
+                            <label>$</label>
+                            <input type="number" min="0" step="10" value={this.state.wantMoney}
+                                onChange={e => this.setState({wantMoney: e.target.value})}/>
+                        </div>
+                    </div>
+                </div>
+                <div className="trade-buttons">
+                    <button className="buy-btn" onClick={this.submit}>Send Offer</button>
+                    <button className="decline-btn" onClick={this.props.onClose}>Cancel</button>
+                </div>
+            </div>
+        </div>;
+    }
 }

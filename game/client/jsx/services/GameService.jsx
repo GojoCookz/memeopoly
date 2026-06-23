@@ -88,6 +88,18 @@ class GameService {
         this.sendToWs('sendDeed', {street: street, type: type, to: to});
     }
 
+    proposeTrade = (toPlayerId, offerProperties, wantProperties, offerMoney, wantMoney) => {
+        this.sendToWs('tradeOffer', {toPlayerId, offerProperties, wantProperties, offerMoney, wantMoney});
+    }
+
+    acceptTrade = () => {
+        this.sendToWs('tradeAccept', {});
+    }
+
+    declineTrade = () => {
+        this.sendToWs('tradeDecline', {});
+    }
+
     calculateNotesSum = (notes) => {
         let sum = 0;
 

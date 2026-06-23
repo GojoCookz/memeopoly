@@ -230,8 +230,8 @@ export default class Board extends React.Component {
                     {game.currentTurn === gameService.currentPlayer && game.turnPhase === 'pre-roll' && (
                         <div className="pre-roll-label">BUILD OR CLICK TO ROLL</div>
                     )}
-                    <Dice diceValue={this.props.game.dice[0]} rolling={this.props.game.rollingDice}/>
-                    <Dice diceValue={this.props.game.dice[1]} rolling={this.props.game.rollingDice}/>
+                    <Dice diceValue={this.props.game.dice[0]} rolling={this.props.game.rollingDice} skin={this.props.diceSkin}/>
+                    <Dice diceValue={this.props.game.dice[1]} rolling={this.props.game.rollingDice} skin={this.props.diceSkin}/>
                 </div>
                 <div className="community-stack card-stack" onClick={() => gameService.drawCard('community')}>
                     <span>Community Chest</span>

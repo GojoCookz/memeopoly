@@ -5,7 +5,8 @@ export default class RoomLobby extends React.Component {
     state = {
         rooms: [],
         newRoomName: '',
-        loading: true
+        loading: true,
+        turnTimer: 0
     }
 
     componentDidMount() {
@@ -28,7 +29,7 @@ export default class RoomLobby extends React.Component {
     createRoom = () => {
         const name = this.state.newRoomName.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
         if (!name) return;
-        gameService.joinRoom(name);
+        gameService.joinRoom(name, this.state.turnTimer);
     }
 
     joinQuick = () => {
@@ -59,6 +60,12 @@ export default class RoomLobby extends React.Component {
                                 onKeyDown={e => e.key === 'Enter' && this.createRoom()}
                                 maxLength={32}
                             />
+                            <select className="timer-select" value={this.state.turnTimer} onChange={e => this.setState({turnTimer: parseInt(e.target.value)})}>
+                                <option value="0">No Timer</option>
+                                <option value="30">30s Turns</option>
+                                <option value="60">60s Turns</option>
+                                <option value="120">2min Turns</option>
+                            </select>
                             <button className="lobby-btn secondary" onClick={this.createRoom}>Create Room</button>
                         </div>
                     </div>

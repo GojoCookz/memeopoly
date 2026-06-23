@@ -191,6 +191,9 @@ wss.on('connection', function (ws) {
                     rooms[ws.roomId].clients.delete(ws);
                 }
                 const room = getOrCreateRoom(roomId);
+                if (messageObject.turnTimer && !room.gameService.game.turnTimeLimit) {
+                    room.gameService.game.turnTimeLimit = Math.min(300, Math.max(0, parseInt(messageObject.turnTimer) || 0));
+                }
                 ws.roomId = roomId;
                 room.clients.add(ws);
                 try {

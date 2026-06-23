@@ -1406,7 +1406,23 @@ class GameService {
         this.game.turnPhase = 'pre-roll';
         this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId, phase: 'pre-roll'}));
         this.sendToWs();
+
+        // Turn timer: auto-roll if player doesn't act
+        if (this.turnTimer) clearTimeout(this.turnTimer);
+        const turnTimeLimit = this.game.turnTimeLimit || 0;
+        if (turnTimeLimit > 0) {
+            this.game.turnTimerEnd = Date.now() + turnTimeLimit * 1000;
+            this.ws.broadcast(JSON.stringify({type: 'turnTimer', seconds: turnTimeLimit, playerId}));
+            this.turnTimer = setTimeout(() => {
+                if (this.game.currentTurn === playerId && this.game.turnPhase === 'pre-roll') {
+                    this.sendLog(player.name + "'s turn timed out - auto rolling");
+                    this.handleReadyToRoll(playerId);
+                }
+            }, turnTimeLimit * 1000);
+        }
     }
+
+    turnTimer = null;
 
     endTurn = () => {
         const lastRoll = this.game.lastRoll;

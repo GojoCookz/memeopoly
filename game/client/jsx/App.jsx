@@ -56,7 +56,8 @@ export default class App extends React.Component {
             // Auction system
             auction: null,
             auctionTimer: null,
-            sidebarTab: 'logs'
+            sidebarTab: 'logs',
+            diceSkin: localStorage.getItem('memeopoly_dice_skin') || 'neon'
         };
     }
 
@@ -298,6 +299,19 @@ export default class App extends React.Component {
             } else {
                 this.addNotification('No bids for ' + data.property, 'info', 'Auction Over');
             }
+        } else if (data.type === 'turnTimer') {
+            if (this.turnTimerInterval) clearInterval(this.turnTimerInterval);
+            let remaining = data.seconds;
+            this.setState({turnTimer: remaining, turnTimerPlayer: data.playerId});
+            this.turnTimerInterval = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(this.turnTimerInterval);
+                    this.setState({turnTimer: null, turnTimerPlayer: null});
+                } else {
+                    this.setState({turnTimer: remaining});
+                }
+            }, 1000);
         } else if (data.type === 'tradeOffer') {
             if (data.toPlayerId === gameService.currentPlayer) {
                 soundManager.play('click');
@@ -464,8 +478,19 @@ export default class App extends React.Component {
                 <div className="game-toolbar">
                     <button className="gt-leave" onClick={this.leaveRoom}>Leave</button>
                     <span className="gt-room">Room: {this.state.roomId}</span>
+                    {this.state.turnTimer > 0 && <span className={"gt-timer" + (this.state.turnTimer <= 10 ? " urgent" : "")}>{this.state.turnTimer}s</span>}
                     <button className="gt-share" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i> Share</button>
                     <div className="gt-spacer"></div>
+                    <select className="gt-dice-skin" value={this.state.diceSkin} onChange={e => {
+                        localStorage.setItem('memeopoly_dice_skin', e.target.value);
+                        this.setState({diceSkin: e.target.value});
+                    }}>
+                        <option value="neon">Neon</option>
+                        <option value="classic">Classic</option>
+                        <option value="fire">Fire</option>
+                        <option value="gold">Gold</option>
+                        <option value="phantom">Phantom</option>
+                    </select>
                     <div className="npc-menu-wrapper">
                         <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>
                             + NPC
@@ -480,7 +505,7 @@ export default class App extends React.Component {
                 <Settings game={this.state.game} logs={this.state.logs} chat={this.state.chat}
                           showHelp={this.showHelp}/>
                 <div className="game">
-                    <Board game={this.state.game} ref={ref => this.boardRef = ref}/>
+                    <Board game={this.state.game} diceSkin={this.state.diceSkin} ref={ref => this.boardRef = ref}/>
                     <div className="game-sidebar">
                         <Players game={this.state.game}/>
                         <div className="sidebar-section sidebar-logs">

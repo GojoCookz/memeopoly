@@ -12,9 +12,9 @@ class GameService {
     onVaultState = null;
     onTokenBalance = null;
 
-    joinRoom = (roomId) => {
+    joinRoom = (roomId, turnTimer) => {
         this.currentPlayer = null;
-        this.ws.send(JSON.stringify({type: 'joinRoom', roomId: roomId}));
+        this.ws.send(JSON.stringify({type: 'joinRoom', roomId: roomId, turnTimer: turnTimer || 0}));
     }
 
     listRooms = () => {

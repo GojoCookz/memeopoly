@@ -71,6 +71,11 @@ export default class App extends React.Component {
         this.connectToGame();
     }
 
+    componentDidUpdate(prevProps, prevState) {
+        const footer = document.getElementById('memeopoly-footer');
+        if (footer) footer.style.display = this.state.inRoom ? 'none' : '';
+    }
+
     connectToGame = () => {
         this.setState({game: null, connected: false}, () => {
             const location = window.location;

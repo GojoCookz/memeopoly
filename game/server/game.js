@@ -1377,8 +1377,17 @@ class GameService {
     // ========== TURN SYSTEM ==========
 
     startTurn = (playerId) => {
+        if (this.turnTimer) clearTimeout(this.turnTimer);
         const player = this.getPlayerFromId(playerId);
         if (player && player.bankrupt) {
+            // Check if game is already over
+            if (this.game.winner) return;
+            const activePlayers = this.game.turnOrder.filter(id => {
+                if (id === 1) return false;
+                const p = this.getPlayerFromId(id);
+                return p && !p.bankrupt;
+            });
+            if (activePlayers.length <= 1) return;
             const currentIndex = this.game.turnOrder.indexOf(playerId);
             const nextIndex = (currentIndex + 1) % this.game.turnOrder.length;
             if (this.game.turnOrder[nextIndex] !== playerId) {
@@ -1425,19 +1434,29 @@ class GameService {
     turnTimer = null;
 
     endTurn = () => {
+        this.clearNPCTimers();
         const lastRoll = this.game.lastRoll;
         // If doubles were rolled and not going to jail, same player goes again
         if (lastRoll && lastRoll.isDoubles && this.game.doublesCount < 3) {
             this.game.turnPhase = 'rolling';
             const player = this.getPlayerFromId(this.game.currentTurn);
-            this.sendLog(player.name + " rolled doubles! Rolling again...");
-            this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: this.game.currentTurn}));
-            this.sendToWs();
-            return;
+            if (!player || player.bankrupt) {
+                this.game.doublesCount = 0;
+                this.game.lastRoll = null;
+            } else {
+                this.sendLog(player.name + " rolled doubles! Rolling again...");
+                this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: this.game.currentTurn}));
+                this.sendToWs();
+                if (player.isNPC) {
+                    this.processNPCTurn(this.game.currentTurn);
+                }
+                return;
+            }
         }
 
         // Advance to next player
-        const currentIndex = this.game.turnOrder.indexOf(this.game.currentTurn);
+        const currentTurn = this.game.currentTurn;
+        const currentIndex = this.game.turnOrder.indexOf(currentTurn);
         const nextIndex = (currentIndex + 1) % this.game.turnOrder.length;
         this.game.doublesCount = 0;
         this.game.lastRoll = null;
@@ -1641,18 +1660,22 @@ class GameService {
         this.ws.broadcast(JSON.stringify({type: 'bankrupt', playerId: playerId, playerName: player.name}));
 
         // Transfer all properties back to bank
-        ['regular', 'railroad', 'utility'].forEach(type => {
+        ['regular', 'trainStations', 'utilities'].forEach(type => {
+            if (!this.game.deeds[type]) return;
             this.game.deeds[type].filter(d => d.owner === playerId).forEach(d => {
-                this.transferDeed(d.title, type, 1, playerId);
+                d.owner = "1";
+                if (d.houses) d.houses = 0;
+                if (d.hotel) d.hotel = 0;
+                if (d.mortgaged) d.mortgaged = false;
             });
         });
 
-        // Remove from turn order
-        const idx = this.game.turnOrder.indexOf(playerId);
-        if (idx !== -1) this.game.turnOrder.splice(idx, 1);
-
-        // Check for winner
-        const activePlayers = this.game.turnOrder.filter(id => id !== 1);
+        // Check for winner (don't remove from turnOrder mid-game to avoid index corruption)
+        const activePlayers = this.game.turnOrder.filter(id => {
+            if (id === 1) return false;
+            const p = this.getPlayerFromId(id);
+            return p && !p.bankrupt;
+        });
         if (activePlayers.length === 1) {
             const winner = this.getPlayerFromId(activePlayers[0]);
             this.sendLog("GAME OVER: " + winner.name + " wins!");
@@ -1738,6 +1761,9 @@ class GameService {
             position: deed.position,
             deedType: deedType
         }));
+
+        // NPCs place bids automatically
+        this.npcAuctionBid(deed);
 
         this.auctionTimeout = setTimeout(() => this.endAuction(), 10000);
         this.auctionTickInterval = setInterval(() => {
@@ -2202,6 +2228,13 @@ class GameService {
 
     npcTimers = {};
 
+    clearNPCTimers = () => {
+        for (const id of Object.keys(this.npcTimers)) {
+            clearTimeout(this.npcTimers[id]);
+        }
+        this.npcTimers = {};
+    }
+
     addNPC = (difficulty = 'medium') => {
         const usedNames = this.game.players.map(p => p.name);
         const available = this.NPC_NAMES.filter(n => !usedNames.includes(n));
@@ -2231,7 +2264,7 @@ class GameService {
 
     processNPCTurn = (playerId) => {
         const player = this.getPlayerFromId(playerId);
-        if (!player || !player.isNPC) return;
+        if (!player || !player.isNPC || player.bankrupt) return;
 
         const difficulty = player.npcDifficulty || 'medium';
 
@@ -2241,8 +2274,9 @@ class GameService {
         }
 
         // Auto roll dice after delay
+        if (this.npcTimers[playerId]) clearTimeout(this.npcTimers[playerId]);
         this.npcTimers[playerId] = setTimeout(() => {
-            if (this.game.currentTurn === playerId && this.game.turnPhase === 'rolling') {
+            if (this.game.currentTurn === playerId && this.game.turnPhase === 'rolling' && !player.bankrupt) {
                 this.rollDice(0, this.randomInt(10) + 5, playerId);
             }
         }, 2000 + Math.random() * 1000);
@@ -2313,6 +2347,32 @@ class GameService {
                 if (balance >= cost + 100) {
                     this.addHotel(deed.title, player);
                 }
+            }
+        }
+    }
+
+    npcAuctionBid = (deed) => {
+        const npcPlayers = this.game.players.filter(p => p.isNPC && !p.bankrupt);
+        let delay = 1500;
+        for (const npc of npcPlayers) {
+            const balance = this.calculateNotesSum(npc.notes);
+            const difficulty = npc.npcDifficulty || 'medium';
+            let maxBid = 0;
+            if (difficulty === 'easy') {
+                maxBid = Math.min(balance * 0.3, deed.price * 0.5);
+            } else if (difficulty === 'medium') {
+                maxBid = Math.min(balance * 0.5, deed.price * 0.8);
+            } else {
+                maxBid = Math.min(balance - 200, deed.price);
+            }
+            if (maxBid > 10) {
+                const bidAmount = Math.floor(Math.random() * (maxBid * 0.3) + maxBid * 0.7);
+                setTimeout(() => {
+                    if (this.auctionState && bidAmount > this.auctionState.highestBid) {
+                        this.handleBid(npc.id, bidAmount);
+                    }
+                }, delay);
+                delay += 1500 + Math.random() * 1000;
             }
         }
     }

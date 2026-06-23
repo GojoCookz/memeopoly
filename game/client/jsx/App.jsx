@@ -57,7 +57,11 @@ export default class App extends React.Component {
             auction: null,
             auctionTimer: null,
             sidebarTab: 'logs',
-            diceSkin: localStorage.getItem('memeopoly_dice_skin') || 'neon'
+            diceSkin: localStorage.getItem('memeopoly_dice_skin') || 'neon',
+            mobilePanel: null, // null | 'wins' | 'build' | 'album' | 'friends'
+            showSettingsPanel: false,
+            xpData: {},
+            levelUpAlert: null
         };
     }
 
@@ -171,6 +175,14 @@ export default class App extends React.Component {
                 if (now > prev) {
                     this.addNotification('+' + (now - prev) + ' $MEMO earned!', 'reward', 'Token Reward');
                 }
+            }
+        } else if (data.type === 'xpUpdate') {
+            this.setState({xpData: data.players || {}});
+        } else if (data.type === 'levelUp') {
+            if (data.playerId === gameService.currentPlayer) {
+                this.addNotification('LEVEL UP! You are now Level ' + data.level + ' - ' + data.stage.name, 'reward', 'Level Up!');
+                this.setState({levelUpAlert: data});
+                setTimeout(() => this.setState({levelUpAlert: null}), 4000);
             }
         } else if (data.type === 'yourTurn') {
             if (data.playerId === gameService.currentPlayer) {
@@ -535,38 +547,69 @@ export default class App extends React.Component {
                 />
                 <WalletConnect onNotify={this.addNotification}/>
                 <Notifications notifications={this.state.notifications}/>
+                {/* Mobile top toolbar - simplified */}
                 <div className="game-toolbar">
                     <button className="gt-leave" onClick={this.leaveRoom}>Leave</button>
-                    <span className="gt-room">Room: {this.state.roomId}</span>
+                    <span className="gt-room">{this.state.roomId}</span>
                     {this.state.turnTimer > 0 && <span className={"gt-timer" + (this.state.turnTimer <= 10 ? " urgent" : "")}>{this.state.turnTimer}s</span>}
-                    <button className="gt-share" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i> Share</button>
                     <div className="gt-spacer"></div>
-                    <select className="gt-dice-skin" value={this.state.diceSkin} onChange={e => {
-                        localStorage.setItem('memeopoly_dice_skin', e.target.value);
-                        this.setState({diceSkin: e.target.value});
-                    }}>
-                        <option value="neon">Neon</option>
-                        <option value="classic">Classic</option>
-                        <option value="fire">Fire</option>
-                        <option value="gold">Gold</option>
-                        <option value="phantom">Phantom</option>
-                    </select>
+                    <button className="gt-share" onClick={this.copyRoomLink}><i className="fas fa-share-alt"></i></button>
                     <div className="npc-menu-wrapper">
-                        <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>
-                            + NPC
-                        </button>
+                        <button className="npc-add-btn" onClick={() => this.setState({showNPCMenu: !this.state.showNPCMenu})}>+NPC</button>
                         {this.state.showNPCMenu && <div className="npc-dropdown">
                             <button onClick={() => { gameService.addNPC('easy'); this.setState({showNPCMenu: false}); }}>Easy</button>
                             <button onClick={() => { gameService.addNPC('medium'); this.setState({showNPCMenu: false}); }}>Medium</button>
                             <button onClick={() => { gameService.addNPC('hard'); this.setState({showNPCMenu: false}); }}>Hard</button>
                         </div>}
                     </div>
+                    <button className="gt-settings-btn" onClick={() => this.setState({showSettingsPanel: !this.state.showSettingsPanel})}>
+                        <i className="fas fa-cog"></i>
+                    </button>
                 </div>
+                {/* Settings dropdown panel */}
+                {this.state.showSettingsPanel && <div className="settings-dropdown">
+                    <label className="settings-row">
+                        <span>Dice Skin</span>
+                        <select value={this.state.diceSkin} onChange={e => {
+                            localStorage.setItem('memeopoly_dice_skin', e.target.value);
+                            this.setState({diceSkin: e.target.value});
+                        }}>
+                            <option value="neon">Neon</option>
+                            <option value="classic">Classic</option>
+                            <option value="fire">Fire</option>
+                            <option value="gold">Gold</option>
+                            <option value="phantom">Phantom</option>
+                        </select>
+                    </label>
+                    <button className="settings-row-btn" onClick={this.showHelp}>How to Play</button>
+                </div>}
                 <Settings game={this.state.game} logs={this.state.logs} chat={this.state.chat}
                           showHelp={this.showHelp}/>
+                {/* Status bar */}
+                {(() => {
+                    const myId = gameService.currentPlayer;
+                    const myPlayer = this.state.game && myId
+                        ? this.state.game.players.find(p => p.id === myId)
+                        : null;
+                    const myXP = this.state.xpData[myId] || {xp: 0, level: 1, stage: {name: 'Meme Street'}, nextLevelXP: 100};
+                    const balance = myPlayer ? this.state.cpolyBalances[myId] || 0 : 0;
+                    return <div className="mobile-status-bar">
+                        <div className="msb-left">
+                            <span className="msb-level">Lv.{myXP.level}</span>
+                            <span className="msb-xp">&#9733; {myXP.xp}</span>
+                        </div>
+                        <div className="msb-center">
+                            <span className="msb-stage">{myXP.stage.name}</span>
+                        </div>
+                        <div className="msb-right">
+                            <span className="msb-balance">{balance} $MEMO</span>
+                        </div>
+                    </div>;
+                })()}
                 {this.renderTurnBanner()}
                 <div className="game">
                     <Board game={this.state.game} diceSkin={this.state.diceSkin} ref={ref => this.boardRef = ref}/>
+                    {/* Desktop sidebar - hidden on mobile, replaced by slide-up panel */}
                     <div className="game-sidebar">
                         <Players game={this.state.game}/>
                         <div className="sidebar-section sidebar-logs">
@@ -635,6 +678,126 @@ export default class App extends React.Component {
                         </div>
                     </div>
                 </div>
+                {/* Mobile slide-up panel */}
+                {this.state.mobilePanel && <div className="mobile-slideup-overlay" onClick={() => this.setState({mobilePanel: null})}>
+                    <div className="mobile-slideup" onClick={e => e.stopPropagation()}>
+                        <div className="slideup-handle"></div>
+                        <div className="slideup-header">
+                            <span className="slideup-title">
+                                {this.state.mobilePanel === 'wins' && 'Wins'}
+                                {this.state.mobilePanel === 'build' && 'Build & Manage'}
+                                {this.state.mobilePanel === 'album' && 'Game Log'}
+                                {this.state.mobilePanel === 'friends' && 'Players & Chat'}
+                            </span>
+                            <button className="slideup-close" onClick={() => this.setState({mobilePanel: null})}>&#x2715;</button>
+                        </div>
+                        <div className="slideup-body">
+                            {this.state.mobilePanel === 'wins' && <div className="slideup-wins">
+                                <Players game={this.state.game}/>
+                            </div>}
+                            {this.state.mobilePanel === 'build' && <div className="slideup-build">
+                                <div className="sidebar-props-content">
+                                    {this.state.game && gameService.currentPlayer && (() => {
+                                        const myId = gameService.currentPlayer;
+                                        const game = this.state.game;
+                                        const myDeeds = game.deeds.regular.filter(d => d.owner === myId);
+                                        const myRailroads = game.deeds.railroad.filter(d => d.owner === myId);
+                                        const myUtilities = game.deeds.utility.filter(d => d.owner === myId);
+                                        if (myDeeds.length === 0 && myRailroads.length === 0 && myUtilities.length === 0) {
+                                            return <div className="props-empty">No properties yet</div>;
+                                        }
+                                        return <div className="props-list">
+                                            {myDeeds.map(d => {
+                                                const canBuild = gameService.canBuyHouse(d, game);
+                                                return <div key={d.title} className="prop-row" style={{borderLeft: '4px solid ' + d.color}}>
+                                                    <span className="prop-name">{d.title}</span>
+                                                    <span className="prop-houses">
+                                                        {d.hotel > 0 ? 'H' : d.houses > 0 ? d.houses + 'h' : ''}
+                                                    </span>
+                                                    {canBuild && d.houses < 4 && d.hotel === 0 && (
+                                                        <button className="prop-build-btn" onClick={() => gameService.addHouse(d.title)}>+H</button>
+                                                    )}
+                                                    {canBuild && d.houses === 4 && d.hotel === 0 && (
+                                                        <button className="prop-build-btn hotel" onClick={() => gameService.addHotel(d.title)}>+Hotel</button>
+                                                    )}
+                                                </div>;
+                                            })}
+                                            {myRailroads.map(d => <div key={d.title} className="prop-row" style={{borderLeft: '4px solid #666'}}>
+                                                <span className="prop-name">{d.title}</span>
+                                            </div>)}
+                                            {myUtilities.map(d => <div key={d.title} className="prop-row" style={{borderLeft: '4px solid #888'}}>
+                                                <span className="prop-name">{d.title}</span>
+                                            </div>)}
+                                        </div>;
+                                    })()}
+                                    {this.state.game && gameService.currentPlayer && (
+                                        <button className="trade-open-btn" onClick={() => this.setState({showTradeUI: true, mobilePanel: null})}>
+                                            Propose Trade
+                                        </button>
+                                    )}
+                                </div>
+                            </div>}
+                            {this.state.mobilePanel === 'album' && <div className="slideup-album">
+                                <div className="sidebar-log-content" id="log-box-mobile">
+                                    {this.state.logs.map((l, i) => <p key={i}>{l}</p>)}
+                                </div>
+                            </div>}
+                            {this.state.mobilePanel === 'friends' && <div className="slideup-friends">
+                                <div className="sidebar-chat-content">
+                                    <div className="sidebar-chat-msgs" id="chat-box-mobile">
+                                        {this.state.chat.map((l, i) => <p key={i}>{l}</p>)}
+                                    </div>
+                                    <div className="sidebar-chat-input">
+                                        <input type="text" placeholder="Type..." onKeyDown={(e) => { if (e.key === 'Enter' && e.target.value) { gameService.sendToWs('chat', {message: e.target.value}); e.target.value = ''; }}}/>
+                                        <button onClick={(e) => { const inp = e.target.parentElement.querySelector('input'); if (inp.value) { gameService.sendToWs('chat', {message: inp.value}); inp.value = ''; }}}>Send</button>
+                                    </div>
+                                </div>
+                            </div>}
+                        </div>
+                    </div>
+                </div>}
+                {/* Bottom Navigation Bar */}
+                {(() => {
+                    const game = this.state.game;
+                    const isMyTurn = game && game.currentTurn === gameService.currentPlayer;
+                    const isPreRoll = isMyTurn && game.turnPhase === 'pre-roll';
+                    return <div className="mobile-bottom-nav">
+                        <button className={"mbn-btn" + (this.state.mobilePanel === 'wins' ? " active" : "")}
+                            onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'wins' ? null : 'wins'})}>
+                            <span className="mbn-icon">&#x1F3C6;</span>
+                            <span className="mbn-label">WINS</span>
+                        </button>
+                        <button className={"mbn-btn" + (this.state.mobilePanel === 'build' ? " active" : "")}
+                            onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'build' ? null : 'build'})}>
+                            <span className="mbn-icon">&#x1F527;</span>
+                            <span className="mbn-label">BUILD</span>
+                        </button>
+                        <div className="mbn-go-wrapper">
+                            <button className={"mbn-go-btn" + (isPreRoll ? " can-roll" : "") + (isMyTurn && game.turnPhase === 'rolling' ? " rolling" : "")}
+                                disabled={!isPreRoll}
+                                onClick={() => { if (isPreRoll) gameService.readyToRoll(); }}>
+                                <span className="mbn-go-text">GO</span>
+                                <span className="mbn-go-multi">x5</span>
+                            </button>
+                            <div className="mbn-roll-info">
+                                <div className="mbn-roll-bar">
+                                    <div className="mbn-roll-fill" style={{width: '85%'}}></div>
+                                </div>
+                                <span className="mbn-roll-text">68/80 -- 8 Rolls in 07:50</span>
+                            </div>
+                        </div>
+                        <button className={"mbn-btn" + (this.state.mobilePanel === 'album' ? " active" : "")}
+                            onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'album' ? null : 'album'})}>
+                            <span className="mbn-icon">&#x1F4D6;</span>
+                            <span className="mbn-label">ALBUM</span>
+                        </button>
+                        <button className={"mbn-btn" + (this.state.mobilePanel === 'friends' ? " active" : "")}
+                            onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'friends' ? null : 'friends'})}>
+                            <span className="mbn-icon">&#x1F465;</span>
+                            <span className="mbn-label">FRIENDS</span>
+                        </button>
+                    </div>;
+                })()}
                 {this.state.showHelp && <HelpDialog dismiss={this.hideHelp}/>}
                 {!this.state.showHelp && this.state.showTutorial && <Tutorial onClose={this.closeTutorial}/>}
                 {showPlayerDialog && !this.state.showTutorial && <SelectPlayerDialog game={this.state.game}/>}
@@ -690,6 +853,15 @@ export default class App extends React.Component {
                     <div className="jailed-overlay">
                         <h2>RUGGED!</h2>
                         <p>Go to Jail!</p>
+                    </div>
+                </div>}
+                {this.state.levelUpAlert && <div className="card-overlay level-up-overlay">
+                    <div className="level-up-modal">
+                        <div className="level-up-star">&#9733;</div>
+                        <h2>LEVEL UP!</h2>
+                        <p className="level-up-num">Level {this.state.levelUpAlert.level}</p>
+                        <p className="level-up-stage">{this.state.levelUpAlert.stage.name}</p>
+                        <p className="level-up-desc">{this.state.levelUpAlert.stage.desc}</p>
                     </div>
                 </div>}
                 {this.state.winner && <div className="card-overlay winner-overlay">

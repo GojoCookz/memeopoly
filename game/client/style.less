@@ -2890,6 +2890,60 @@ h3 {
   background: rgba(0, 0, 0, 0.85);
 }
 
+.level-up-overlay {
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+.level-up-modal {
+  background: linear-gradient(145deg, #0a1628 0%, #1e3a5f 50%, #0a1628 100%);
+  border: 3px solid #facc15;
+  border-radius: 20px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 0 80px rgba(250, 204, 21, 0.5), 0 0 200px rgba(250, 204, 21, 0.15);
+  animation: slideUp 0.4s ease;
+
+  .level-up-star {
+    font-size: 70px;
+    color: #facc15;
+    text-shadow: 0 0 40px rgba(250, 204, 21, 0.8);
+    animation: crownBounce 1s ease-in-out infinite;
+  }
+
+  h2 {
+    color: #facc15;
+    font-size: 36px;
+    margin: 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    text-shadow: 0 0 30px rgba(250, 204, 21, 0.6);
+  }
+
+  .level-up-num {
+    color: #fff;
+    font-size: 48px;
+    font-weight: 900;
+    margin: 10px 0 5px;
+  }
+
+  .level-up-stage {
+    color: #38bdf8;
+    font-size: 22px;
+    font-weight: bold;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin: 5px 0;
+  }
+
+  .level-up-desc {
+    color: #94a3b8;
+    font-size: 14px;
+    font-style: italic;
+    margin: 10px 0 0;
+  }
+}
+
 .winner-modal {
   background: linear-gradient(145deg, #1a0533 0%, #2d1b69 50%, #1a0533 100%);
   border: 3px solid #a855f7;
@@ -3293,6 +3347,462 @@ h3 {
 @keyframes dice-pulse {
   0%, 100% { filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.3)); }
   50% { filter: drop-shadow(0 6px 16px rgba(0,0,0,0.7)) drop-shadow(0 0 40px rgba(56, 189, 248, 0.8)) drop-shadow(0 0 60px rgba(139, 92, 246, 0.4)); }
+}
+
+// ==========================================
+// MONOPOLY GO MOBILE UI
+// ==========================================
+
+// Settings dropdown
+.settings-dropdown {
+  position: fixed;
+  top: 84px;
+  right: 10px;
+  background: @bgPanel;
+  border: 1px solid @borderGlow;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 60;
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+
+  .settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    color: @textMuted;
+    font-size: 12px;
+
+    select {
+      background: rgba(255,255,255,0.1);
+      color: @textMain;
+      border: 1px solid @borderGlow;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11px;
+      option { background: @bgCard; color: @textMain; }
+    }
+  }
+
+  .settings-row-btn {
+    width: 100%;
+    margin-top: 6px;
+    background: rgba(56,189,248,0.12);
+    border: 1px solid @borderGlow;
+    color: @accentCyan;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    &:hover { background: rgba(56,189,248,0.25); }
+  }
+}
+
+.gt-settings-btn {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  color: @textMuted;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  &:hover { background: rgba(255,255,255,0.15); color: @textMain; }
+}
+
+// Mobile Status Bar
+.mobile-status-bar {
+  position: fixed;
+  top: 84px;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: rgba(10, 10, 26, 0.9);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  z-index: 48;
+  font-size: 11px;
+
+  .msb-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .msb-level {
+    color: #a855f7;
+    font-weight: 900;
+    font-size: 12px;
+    background: rgba(168, 85, 247, 0.15);
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+  }
+
+  .msb-xp {
+    color: #fbbf24;
+    font-weight: bold;
+  }
+
+  .msb-stage {
+    color: #94a3b8;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .msb-center {
+    .msb-timer {
+      color: @accentCyan;
+      font-weight: bold;
+      font-variant-numeric: tabular-nums;
+      &.urgent { color: #ef4444; }
+    }
+  }
+
+  .msb-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .msb-streak {
+    color: @accentCyan;
+  }
+
+  .msb-balance {
+    color: @accentGreen;
+    font-weight: bold;
+    font-size: 12px;
+  }
+}
+
+// Bottom Navigation Bar
+.mobile-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(180deg, rgba(10, 10, 26, 0.97) 0%, rgba(5, 5, 15, 0.99) 100%);
+  border-top: 1px solid rgba(56, 189, 248, 0.15);
+  display: none; // shown via media query
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 0 4px 6px;
+  z-index: 100;
+
+  .mbn-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none;
+    border: none;
+    color: @textMuted;
+    cursor: pointer;
+    padding: 6px 8px;
+    min-width: 48px;
+    transition: color 0.15s;
+
+    &.active, &:hover { color: @accentCyan; }
+
+    .mbn-icon {
+      font-size: 20px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .mbn-label {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+  }
+
+  .mbn-go-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: -30px; // float above nav bar
+  }
+
+  .mbn-go-btn {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    border: 3px solid rgba(100, 100, 140, 0.4);
+    background: linear-gradient(145deg, #2a2a4a 0%, #1a1a30 100%);
+    color: @textMuted;
+    font-size: 22px;
+    font-weight: 900;
+    cursor: not-allowed;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    transition: all 0.2s;
+
+    .mbn-go-text {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .mbn-go-multi {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 5px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+
+    &.can-roll {
+      background: linear-gradient(145deg, @accentCyan 0%, #6366f1 50%, #a855f7 100%);
+      border-color: rgba(255,255,255,0.4);
+      color: #fff;
+      cursor: pointer;
+      animation: goBtnPulse 1.5s ease-in-out infinite;
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.5), 0 4px 16px rgba(0,0,0,0.5);
+
+      &:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 36px rgba(56, 189, 248, 0.7), 0 4px 20px rgba(0,0,0,0.5);
+      }
+    }
+
+    &.rolling {
+      background: linear-gradient(145deg, #7c3aed 0%, #a855f7 100%);
+      border-color: rgba(168, 85, 247, 0.6);
+      animation: dice-tumble-btn 0.6s ease infinite;
+    }
+  }
+
+  .mbn-roll-info {
+    margin-top: 4px;
+    text-align: center;
+    width: 100px;
+  }
+
+  .mbn-roll-bar {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+
+    .mbn-roll-fill {
+      height: 100%;
+      background: linear-gradient(90deg, @accentCyan, @accentGreen);
+      border-radius: 2px;
+    }
+  }
+
+  .mbn-roll-text {
+    font-size: 8px;
+    color: @textMuted;
+    display: block;
+    margin-top: 1px;
+  }
+}
+
+@keyframes goBtnPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.4), 0 4px 16px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 36px rgba(56, 189, 248, 0.7), 0 0 60px rgba(168, 85, 247, 0.2), 0 4px 16px rgba(0,0,0,0.5); }
+}
+
+@keyframes dice-tumble-btn {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(5deg); }
+  75% { transform: rotate(-5deg); }
+  100% { transform: rotate(0deg); }
+}
+
+// Mobile Slide-up Panel
+.mobile-slideup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 80px;
+  background: rgba(0,0,0,0.5);
+  z-index: 90;
+  display: none; // shown via media query
+}
+
+.mobile-slideup {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 60vh;
+  background: @bgPanel;
+  border-top: 1px solid @borderGlow;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUpPanel 0.25s ease-out;
+
+  .slideup-handle {
+    width: 40px;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    margin: 8px auto 4px;
+    flex-shrink: 0;
+  }
+
+  .slideup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 16px 8px;
+    flex-shrink: 0;
+
+    .slideup-title {
+      color: @accentCyan;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slideup-close {
+      background: none;
+      border: none;
+      color: @textMuted;
+      font-size: 18px;
+      cursor: pointer;
+      &:hover { color: @textMain; }
+    }
+  }
+
+  .slideup-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 12px 12px;
+
+    .sidebar-log-content {
+      max-height: 40vh;
+    }
+  }
+}
+
+@keyframes slideUpPanel {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+// ==========================================
+// MOBILE-FIRST RESPONSIVE OVERRIDES
+// ==========================================
+
+@media (max-width: 1024px) {
+  // Show bottom nav and slide-up on mobile
+  .mobile-bottom-nav {
+    display: flex;
+  }
+
+  .mobile-slideup-overlay {
+    display: block;
+  }
+
+  // Adjust game layout - stacked, full width
+  .game {
+    grid-template-areas: 'board';
+    grid-template-columns: 1fr;
+    margin-top: 116px; // top-nav(48) + toolbar(40) + status(32) - 4 overlap
+    height: auto;
+    overflow: visible;
+    padding-bottom: 90px; // space for bottom nav
+  }
+
+  // Hide desktop sidebar on mobile
+  .game-sidebar {
+    display: none;
+  }
+
+  // Turn banner repositioned for mobile
+  .turn-banner {
+    top: 116px;
+    height: 36px;
+    .turn-banner-inner { padding: 0 12px; gap: 8px; }
+    .turn-banner-name { font-size: 12px; }
+    .turn-banner-action { font-size: 9px; }
+    .turn-banner-roll-btn { display: none; } // replaced by GO button
+  }
+
+  // Isometric board tilt
+  .board-container {
+    perspective: 800px;
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  .board {
+    transform: perspective(800px) rotateX(30deg) rotateZ(0deg);
+    transform-origin: center center;
+    width: 92vw;
+    height: 92vw;
+    max-width: 520px;
+    max-height: 520px;
+    box-shadow:
+      0 40px 60px rgba(0,0,0,0.6),
+      0 20px 30px rgba(0,0,0,0.4),
+      0 0 60px rgba(56, 189, 248, 0.08);
+  }
+
+  // Board container adjustments for isometric
+  .board-container .dice-set {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.7);
+  }
+}
+
+@media (max-width: 600px) {
+  .mobile-status-bar {
+    top: 84px;
+    font-size: 10px;
+    padding: 0 8px;
+  }
+
+  .game {
+    margin-top: 116px;
+  }
+
+  .board {
+    width: 96vw;
+    height: 96vw;
+    max-width: none;
+    max-height: none;
+    transform: perspective(700px) rotateX(25deg);
+    font-size: 6px;
+  }
+
+  .mobile-bottom-nav {
+    height: 72px;
+    padding-bottom: 4px;
+
+    .mbn-go-btn {
+      width: 60px;
+      height: 60px;
+      .mbn-go-text { font-size: 20px; }
+    }
+
+    .mbn-go-wrapper {
+      margin-top: -24px;
+    }
+  }
 }
 
 // Turn notification style

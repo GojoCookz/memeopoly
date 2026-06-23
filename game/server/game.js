@@ -30,6 +30,98 @@ class GameService {
     dailyLogins = {};
     colorSetBonusClaimed = {};
 
+    // --- XP / Level / Stage System ---
+    playerXP = {};
+    playerLevels = {};
+
+    static LEVEL_THRESHOLDS = [
+        0, 100, 250, 500, 850, 1300, 1900, 2600, 3500, 4600,
+        6000, 7700, 9800, 12300, 15300, 18800, 23000, 27800, 33400, 40000
+    ];
+
+    static STAGE_THEMES = [
+        { level: 1, name: 'Meme Street', bg: '#0a0a1a', accent: '#38bdf8', desc: 'Where every degen starts' },
+        { level: 5, name: 'Degen District', bg: '#1a0a2e', accent: '#a855f7', desc: 'Purple haze of gains' },
+        { level: 10, name: 'Whale Harbor', bg: '#0a1a2e', accent: '#22d3ee', desc: 'Big fish territory' },
+        { level: 15, name: 'Diamond Hands Peak', bg: '#1a1a0a', accent: '#facc15', desc: 'Only holders reach the top' },
+        { level: 20, name: 'Moon Base Alpha', bg: '#0a0a0a', accent: '#f97316', desc: 'We made it' }
+    ];
+
+    static XP_REWARDS = {
+        passGo: 30,
+        buyProperty: 20,
+        buildHouse: 15,
+        buildHotel: 40,
+        winAuction: 25,
+        completeTrade: 35,
+        bankruptOpponent: 100,
+        winGame: 500,
+        rollDoubles: 10
+    };
+
+    getPlayerLevel = (playerId) => {
+        const xp = this.playerXP[playerId] || 0;
+        const thresholds = GameService.LEVEL_THRESHOLDS;
+        let level = 1;
+        for (let i = thresholds.length - 1; i >= 0; i--) {
+            if (xp >= thresholds[i]) { level = i + 1; break; }
+        }
+        return level;
+    }
+
+    getPlayerStage = (playerId) => {
+        const level = this.getPlayerLevel(playerId);
+        const stages = GameService.STAGE_THEMES;
+        let stage = stages[0];
+        for (let i = stages.length - 1; i >= 0; i--) {
+            if (level >= stages[i].level) { stage = stages[i]; break; }
+        }
+        return stage;
+    }
+
+    awardXP = (playerId, amount, reason) => {
+        if (!playerId || playerId === 1) return;
+        const player = this.getPlayerFromId(playerId);
+        if (!player || player.isNPC) return;
+
+        if (!this.playerXP[playerId]) this.playerXP[playerId] = 0;
+        const oldLevel = this.getPlayerLevel(playerId);
+        this.playerXP[playerId] += amount;
+        const newLevel = this.getPlayerLevel(playerId);
+        this.playerLevels[playerId] = newLevel;
+
+        this.sendLog(player.name + ' +' + amount + ' XP (' + reason + ')');
+
+        if (newLevel > oldLevel) {
+            const stage = this.getPlayerStage(playerId);
+            this.sendLog('LEVEL UP! ' + player.name + ' is now Level ' + newLevel + '!');
+            this.ws.broadcast(JSON.stringify({
+                type: 'levelUp',
+                playerId,
+                level: newLevel,
+                stage: stage,
+                xp: this.playerXP[playerId]
+            }));
+        }
+
+        this.broadcastXP();
+    }
+
+    broadcastXP = () => {
+        try {
+            const xpData = {};
+            for (const pid of Object.keys(this.playerXP)) {
+                xpData[pid] = {
+                    xp: this.playerXP[pid],
+                    level: this.getPlayerLevel(pid),
+                    stage: this.getPlayerStage(pid),
+                    nextLevelXP: GameService.LEVEL_THRESHOLDS[this.getPlayerLevel(pid)] || 99999
+                };
+            }
+            this.ws.broadcast(JSON.stringify({ type: 'xpUpdate', players: xpData }));
+        } catch(e) {}
+    }
+
     awardCpoly = (playerId, amount, reason) => {
         if (!this.cpolyBalances[playerId]) this.cpolyBalances[playerId] = 0;
         this.cpolyBalances[playerId] += amount;
@@ -1017,6 +1109,7 @@ class GameService {
             street.houses++;
             bank.housing.houses--;
             this.sendLog(player.name + " added one house to " + title);
+            this.awardXP(player.id, GameService.XP_REWARDS.buildHouse, 'built house on ' + title);
             this.sendLog("Bank balance: Houses: " + bank.housing.houses + ", Hotels: " + bank.housing.hotels);
         } else {
             this.sendLog("No more houses in the bank");
@@ -1077,6 +1170,7 @@ class GameService {
             street.hotel++;
             street.houses = 0;
             this.sendLog(player.name + " added one hotel to " + title);
+            this.awardXP(player.id, GameService.XP_REWARDS.buildHotel, 'built hotel on ' + title);
             this.sendLog("Bank balance: Houses: " + bank.housing.houses + ", Hotels: " + bank.housing.hotels);
         } else {
             this.sendLog("No more hotels in the bank");
@@ -1350,6 +1444,7 @@ class GameService {
                     this.autoTransferMoney(1, playerObj.id, 200);
                     this.sendLog(player + " passed GO and collected $200");
                     this.awardCpoly(playerObj.id, 50, 'passed GO');
+                    this.awardXP(playerObj.id, GameService.XP_REWARDS.passGo, 'passed GO');
                 }
 
                 this.sendLog(player + " moved to position " + newPosition);
@@ -1445,6 +1540,7 @@ class GameService {
                 this.game.lastRoll = null;
             } else {
                 this.sendLog(player.name + " rolled doubles! Rolling again...");
+                    this.awardXP(this.game.currentTurn, GameService.XP_REWARDS.rollDoubles, 'rolled doubles');
                 this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: this.game.currentTurn}));
                 this.sendToWs();
                 if (player.isNPC) {
@@ -1657,6 +1753,9 @@ class GameService {
         if (!player || player.bankrupt) return;
         player.bankrupt = true;
         this.sendLog("BANKRUPT: " + player.name + " is eliminated!");
+        if (this.game.currentTurn && this.game.currentTurn !== playerId) {
+            this.awardXP(this.game.currentTurn, GameService.XP_REWARDS.bankruptOpponent, 'bankrupted ' + player.name);
+        }
         this.ws.broadcast(JSON.stringify({type: 'bankrupt', playerId: playerId, playerName: player.name}));
 
         // Transfer all properties back to bank
@@ -1679,6 +1778,7 @@ class GameService {
         if (activePlayers.length === 1) {
             const winner = this.getPlayerFromId(activePlayers[0]);
             this.sendLog("GAME OVER: " + winner.name + " wins!");
+            this.awardXP(activePlayers[0], GameService.XP_REWARDS.winGame, 'won the game');
             this.game.winner = activePlayers[0];
             this.ws.broadcast(JSON.stringify({type: 'gameOver', winnerId: activePlayers[0], winnerName: winner.name}));
         }
@@ -1704,6 +1804,7 @@ class GameService {
         this.autoTransferMoney(playerId, 1, deed.price);
         deed.owner = playerId;
         this.sendLog(player.name + " bought " + deed.title + " for $" + deed.price);
+        this.awardXP(playerId, GameService.XP_REWARDS.buyProperty, 'bought ' + deed.title);
         this.ws.broadcast(JSON.stringify({
             type: 'propertyBought',
             playerId: playerId,
@@ -2205,6 +2306,8 @@ class GameService {
         if (trade.wantMoney > 0) this.autoTransferMoney(trade.toPlayerId, trade.fromId, trade.wantMoney);
 
         this.sendLog("TRADE COMPLETE: " + from.name + " and " + to.name + " made a deal!");
+        this.awardXP(trade.fromId, GameService.XP_REWARDS.completeTrade, 'completed trade');
+        this.awardXP(trade.toPlayerId, GameService.XP_REWARDS.completeTrade, 'completed trade');
         this.ws.broadcast(JSON.stringify({type: 'tradeComplete', fromName: from.name, toName: to.name}));
         this.sendToWs();
     }

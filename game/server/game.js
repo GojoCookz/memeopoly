@@ -875,6 +875,13 @@ class GameService {
 
     processCommand = (command, params, from) => {
         const player = this.getPlayerFromId(from);
+        // Auto-disable autopilot on any manual command (except setAutopilot itself)
+        if (player && player.autopilot && command !== 'setAutopilot' && command !== 'newPlayer' && command !== 'chat' && command !== 'getCpolyState') {
+            player.autopilot = false;
+            if (this.afkTimers && this.afkTimers[from]) { clearTimeout(this.afkTimers[from]); delete this.afkTimers[from]; }
+            this.ws.broadcast(JSON.stringify({type: 'autopilotChanged', playerId: from, autopilot: false}));
+            this.sendLog(player.name + " took control (autopilot off)");
+        }
         switch (command) {
             case 'rollDice':
                 this.rollDice(0, this.randomInt(10) + 5, from);
@@ -965,6 +972,9 @@ class GameService {
                 break;
             case 'tradeDecline':
                 this.handleTradeDecline(from);
+                break;
+            case 'setAutopilot':
+                this.toggleAutopilot(from, params.enabled);
                 break;
         }
 
@@ -1506,10 +1516,31 @@ class GameService {
             return;
         }
 
+        // Autopilot: skip straight to NPC-style play
+        if (player.autopilot) {
+            this.game.turnPhase = 'pre-roll';
+            this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId, phase: 'pre-roll'}));
+            this.sendToWs();
+            this.runAutopilotTurn(playerId);
+            return;
+        }
+
         // Human players get pre-roll phase to build before rolling
         this.game.turnPhase = 'pre-roll';
         this.ws.broadcast(JSON.stringify({type: 'yourTurn', playerId: playerId, phase: 'pre-roll'}));
         this.sendToWs();
+
+        // AFK idle detection: enable autopilot after 30 seconds of inaction
+        if (this.afkTimers[playerId]) clearTimeout(this.afkTimers[playerId]);
+        this.afkTimers[playerId] = setTimeout(() => {
+            if (this.game.currentTurn === playerId && !player.isNPC && !player.bankrupt &&
+                (this.game.turnPhase === 'pre-roll' || this.game.turnPhase === 'rolling')) {
+                player.autopilot = true;
+                this.ws.broadcast(JSON.stringify({type: 'autopilotChanged', playerId, autopilot: true}));
+                this.sendLog(player.name + " is AFK - autopilot enabled");
+                this.runAutopilotTurn(playerId);
+            }
+        }, 30000);
 
         // Turn timer: auto-roll if player doesn't act
         if (this.turnTimer) clearTimeout(this.turnTimer);
@@ -1545,6 +1576,8 @@ class GameService {
                 this.sendToWs();
                 if (player.isNPC) {
                     this.processNPCTurn(this.game.currentTurn);
+                } else if (player.autopilot) {
+                    this.runAutopilotTurn(this.game.currentTurn);
                 }
                 return;
             }
@@ -1587,9 +1620,11 @@ class GameService {
                 }));
                 this.sendLog(deed.title + " is available for $" + deed.price);
 
-                // NPC auto-buy decision
+                // NPC or autopilot auto-buy decision
                 if (player.isNPC) {
                     this.processNPCBuyDecision(player.id);
+                } else if (player.autopilot) {
+                    this.processAutopilotBuyDecision(player.id);
                 }
 
                 // 15 second timeout
@@ -2363,6 +2398,60 @@ class GameService {
 
         this.addNewPlayer(player);
         this.sendLog(name + ' (NPC - ' + difficulty + ') has joined the game!');
+    }
+
+    // ========== AFK AUTOPILOT ==========
+    afkTimers = {};
+
+    toggleAutopilot = (playerId, enabled) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || player.isNPC) return;
+        player.autopilot = !!enabled;
+        this.ws.broadcast(JSON.stringify({type: 'autopilotChanged', playerId, autopilot: player.autopilot}));
+        this.sendLog(player.name + (player.autopilot ? " enabled autopilot" : " disabled autopilot"));
+        // If enabling autopilot and it's their turn, start acting
+        if (player.autopilot && this.game.currentTurn === playerId) {
+            this.runAutopilotTurn(playerId);
+        }
+    }
+
+    runAutopilotTurn = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.autopilot || player.bankrupt || player.isNPC) return;
+        if (this.game.currentTurn !== playerId) return;
+
+        if (this.game.turnPhase === 'pre-roll') {
+            setTimeout(() => {
+                if (this.game.currentTurn === playerId && player.autopilot && this.game.turnPhase === 'pre-roll') {
+                    this.handleReadyToRoll(playerId);
+                }
+            }, 1500);
+        } else if (this.game.turnPhase === 'rolling') {
+            setTimeout(() => {
+                if (this.game.currentTurn === playerId && player.autopilot && this.game.turnPhase === 'rolling' && !player.bankrupt) {
+                    this.rollDice(0, this.randomInt(10) + 5, playerId);
+                }
+            }, 2000 + Math.random() * 1000);
+        }
+    }
+
+    processAutopilotBuyDecision = (playerId) => {
+        const player = this.getPlayerFromId(playerId);
+        if (!player || !player.autopilot) return;
+        if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+
+        const deed = this.pendingBuyOffer.deed;
+        const balance = this.calculateNotesSum(player.notes);
+
+        setTimeout(() => {
+            if (!this.pendingBuyOffer || this.pendingBuyOffer.playerId !== playerId) return;
+            // Use medium difficulty logic: always buy if affordable
+            if (balance >= deed.price) {
+                this.handleBuyProperty(playerId);
+            } else {
+                this.handleDeclineProperty(playerId);
+            }
+        }, 2000 + Math.random() * 1000);
     }
 
     processNPCTurn = (playerId) => {

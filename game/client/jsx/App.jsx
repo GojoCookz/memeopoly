@@ -61,7 +61,8 @@ export default class App extends React.Component {
             mobilePanel: null, // null | 'wins' | 'build' | 'album' | 'friends'
             showSettingsPanel: false,
             xpData: {},
-            levelUpAlert: null
+            levelUpAlert: null,
+            autopilot: false
         };
     }
 
@@ -183,6 +184,15 @@ export default class App extends React.Component {
                 this.addNotification('LEVEL UP! You are now Level ' + data.level + ' - ' + data.stage.name, 'reward', 'Level Up!');
                 this.setState({levelUpAlert: data});
                 setTimeout(() => this.setState({levelUpAlert: null}), 4000);
+            }
+        } else if (data.type === 'autopilotChanged') {
+            if (data.playerId === gameService.currentPlayer) {
+                this.setState({autopilot: data.autopilot});
+                this.addNotification(
+                    data.autopilot ? 'Auto-pilot ON - AI is playing for you' : 'Auto-pilot OFF - you are back in control',
+                    data.autopilot ? 'warning' : 'info',
+                    'Auto-Pilot'
+                );
             }
         } else if (data.type === 'yourTurn') {
             if (data.playerId === gameService.currentPlayer) {
@@ -353,6 +363,12 @@ export default class App extends React.Component {
         } else {
             rtcService.gotMessageFromServer(message);
         }
+    }
+
+    toggleAutopilot = () => {
+        const newState = !this.state.autopilot;
+        gameService.sendToWs('setAutopilot', {enabled: newState});
+        this.setState({autopilot: newState});
     }
 
     showHelp = () => this.setState({showHelp: true});
@@ -608,7 +624,9 @@ export default class App extends React.Component {
                 })()}
                 {this.renderTurnBanner()}
                 <div className="game">
+                    <img src="./mascot.png" alt="" className="game-mascot mascot-left" onError={(e) => {e.target.style.display='none'}} />
                     <Board game={this.state.game} diceSkin={this.state.diceSkin} ref={ref => this.boardRef = ref}/>
+                    <img src="./mascot.png" alt="" className="game-mascot mascot-right" onError={(e) => {e.target.style.display='none'}} />
                     {/* Desktop sidebar - hidden on mobile, replaced by slide-up panel */}
                     <div className="game-sidebar">
                         <Players game={this.state.game}/>
@@ -628,8 +646,8 @@ export default class App extends React.Component {
                                         const myId = gameService.currentPlayer;
                                         const game = this.state.game;
                                         const myDeeds = game.deeds.regular.filter(d => d.owner === myId);
-                                        const myRailroads = game.deeds.railroad.filter(d => d.owner === myId);
-                                        const myUtilities = game.deeds.utility.filter(d => d.owner === myId);
+                                        const myRailroads = (game.deeds.trainStations || []).filter(d => d.owner === myId);
+                                        const myUtilities = (game.deeds.utilities || []).filter(d => d.owner === myId);
                                         const isPreRoll = game.currentTurn === myId && game.turnPhase === 'pre-roll';
                                         if (myDeeds.length === 0 && myRailroads.length === 0 && myUtilities.length === 0) {
                                             return <div className="props-empty">No properties yet</div>;
@@ -701,8 +719,8 @@ export default class App extends React.Component {
                                         const myId = gameService.currentPlayer;
                                         const game = this.state.game;
                                         const myDeeds = game.deeds.regular.filter(d => d.owner === myId);
-                                        const myRailroads = game.deeds.railroad.filter(d => d.owner === myId);
-                                        const myUtilities = game.deeds.utility.filter(d => d.owner === myId);
+                                        const myRailroads = (game.deeds.trainStations || []).filter(d => d.owner === myId);
+                                        const myUtilities = (game.deeds.utilities || []).filter(d => d.owner === myId);
                                         if (myDeeds.length === 0 && myRailroads.length === 0 && myUtilities.length === 0) {
                                             return <div className="props-empty">No properties yet</div>;
                                         }
@@ -790,6 +808,12 @@ export default class App extends React.Component {
                                     <span className="mbn-roll-text">Lv.{myXP.level} -- {myXP.xp}/{myXP.nextLevelXP} XP</span>
                                 </div>;
                             })()}
+                            <button className={"mbn-autopilot-btn" + (this.state.autopilot ? " active" : "")}
+                                onClick={this.toggleAutopilot}
+                                title={this.state.autopilot ? "Auto-pilot ON (click to disable)" : "Enable auto-pilot (AI plays for you)"}>
+                                <span className="mbn-autopilot-icon">{this.state.autopilot ? '\u{1F916}' : '\u{1F3AE}'}</span>
+                                <span className="mbn-autopilot-label">{this.state.autopilot ? 'AUTO' : 'AFK'}</span>
+                            </button>
                         </div>
                         <button className={"mbn-btn" + (this.state.mobilePanel === 'album' ? " active" : "")}
                             onClick={() => this.setState({mobilePanel: this.state.mobilePanel === 'album' ? null : 'album'})}>

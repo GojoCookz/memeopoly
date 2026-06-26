@@ -106,6 +106,13 @@ const handleRequest = async function (request, response) {
         return jsonResponse(response, acc || {error: 'Not found'}, acc ? 200 : 404);
     }
 
+    // --- EMAIL SUBSCRIBE ---
+    if (url === '/api/email-subscribe' && request.method === 'POST') {
+        const body = await parseBody(request);
+        const result = accounts.emailSubscribe(body.email, body.source, request.headers['x-forwarded-for'] || request.socket.remoteAddress);
+        return jsonResponse(response, result, result.error ? 400 : 200);
+    }
+
     // --- LEGS: Share pages ---
     if (url.startsWith('/share/profile/')) {
         const userId = url.split('/share/profile/')[1];

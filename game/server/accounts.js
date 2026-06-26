@@ -320,6 +320,22 @@ function getPublicProfile(userId) {
     };
 }
 
+// --- EMAIL SUBSCRIBE ---
+const EMAILS_FILE = path.join(DATA_DIR, 'emails.json');
+let emailList = loadJSON(EMAILS_FILE, []);
+
+function emailSubscribe(email, source, ip) {
+    if (!email || typeof email !== 'string') return {success: false, error: 'Email is required'};
+    email = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return {success: false, error: 'Invalid email format'};
+    const validSources = ['landing', 'ingame', 'newsletter'];
+    source = validSources.includes(source) ? source : 'landing';
+    if (emailList.some(e => e.email === email)) return {success: true};
+    emailList.push({email, source, subscribedAt: new Date().toISOString(), ip: ip || null});
+    saveJSON(EMAILS_FILE, emailList);
+    return {success: true};
+}
+
 module.exports = {
     createAccount,
     login,
@@ -335,5 +351,6 @@ module.exports = {
     getAnalyticsSummary,
     updateEmail,
     ACHIEVEMENT_DEFS,
-    sanitizeAccount
+    sanitizeAccount,
+    emailSubscribe
 };

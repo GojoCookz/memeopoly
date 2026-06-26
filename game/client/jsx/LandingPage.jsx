@@ -4,7 +4,33 @@ import AuthPanel from './AuthPanel';
 export default class LandingPage extends React.Component {
     state = {
         showAuth: false,
-        stats: null
+        stats: null,
+        email: '',
+        emailSent: false,
+        emailSubmitting: false,
+        emailError: null
+    }
+
+    handleEmailSignup = () => {
+        const email = this.state.email;
+        if (!email || !email.includes('@') || !email.includes('.')) {
+            this.setState({emailError: 'Please enter a valid email'});
+            return;
+        }
+        this.setState({emailSubmitting: true, emailError: null});
+        fetch('/api/email-subscribe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email, source: 'landing'})
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                this.setState({emailSent: true, emailSubmitting: false});
+            } else {
+                this.setState({emailError: data.error || 'Failed to subscribe', emailSubmitting: false});
+            }
+        }).catch(() => {
+            this.setState({emailError: 'Network error, try again', emailSubmitting: false});
+        });
     }
 
     componentDidMount() {
@@ -16,6 +42,7 @@ export default class LandingPage extends React.Component {
         return (
             <div className="landing-page">
                 <div className="landing-hero">
+                    <img src="./mascot.png" alt="Memeopoly Mascot" className="landing-mascot" onError={(e) => {e.target.style.display='none'}} />
                     <h1 className="landing-title">Memeopoly</h1>
                     <p className="landing-subtitle">The meme-powered multiplayer board game</p>
                     <p className="landing-desc">Roll dice. Buy meme coins. Earn $MEMO tokens. Compete on the leaderboard. Build your meme empire.</p>
@@ -29,6 +56,20 @@ export default class LandingPage extends React.Component {
                     <div className="landing-cta">
                         <button className="lobby-btn primary" onClick={() => this.setState({showAuth: true})}>Create Account</button>
                         <button className="lobby-btn secondary" onClick={this.props.onSkip}>Play as Guest</button>
+                    </div>
+
+                    <div className="email-signup">
+                        <p className="email-signup-label">Stay in the loop - get early access & airdrops</p>
+                        <div className="email-signup-row">
+                            <input type="email" placeholder="Enter your email..."
+                                value={this.state.email || ''}
+                                onChange={(e) => this.setState({email: e.target.value})} />
+                            <button className="email-signup-btn" onClick={this.handleEmailSignup}
+                                disabled={this.state.emailSubmitting}>
+                                {this.state.emailSent ? 'Subscribed!' : 'Subscribe'}
+                            </button>
+                        </div>
+                        {this.state.emailError && <p className="email-error">{this.state.emailError}</p>}
                     </div>
                 </div>
 

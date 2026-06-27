@@ -91,7 +91,7 @@ export default class LandingPage extends React.Component {
                 <div className="landing-footer">
                     <p>CA: XXXX...XXXX</p>
                     <div className="landing-links">
-                        <a href="#" target="_blank">Twitter</a>
+                        <a href="https://x.com/MemeopolyGame" target="_blank">Twitter</a>
                         <a href="#" target="_blank">Pump.fun</a>
                     </div>
                 </div>

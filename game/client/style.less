@@ -707,7 +707,7 @@ h3 {
     position: absolute;
     z-index: 20;
     filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6));
-    transition: top 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), left 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: top 0.18s ease-out, left 0.18s ease-out;
 
     &.dragging {
       transition: none;
@@ -1675,7 +1675,7 @@ h3 {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.15);
+    background: rgba(184, 134, 11, 0.2);
     transition: all 0.3s ease;
 
     &.active {
@@ -3049,16 +3049,16 @@ h3 {
   }
 
   h2 {
-    color: #e9d5ff;
+    color: #7c3aed;
     font-size: 42px;
     margin: 10px 0;
     text-transform: uppercase;
     letter-spacing: 8px;
-    text-shadow: 0 0 30px rgba(168, 85, 247, 0.8);
+    text-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
   }
 
   .winner-name {
-    color: #fbbf24;
+    color: #b45309;
     font-size: 36px;
     font-weight: bold;
     margin: 20px 0 5px;
@@ -3066,7 +3066,7 @@ h3 {
   }
 
   .winner-subtitle {
-    color: #c084fc;
+    color: #8b6914;
     font-size: 16px;
     letter-spacing: 6px;
     text-transform: uppercase;
@@ -3103,8 +3103,8 @@ h3 {
 }
 
 .timer-select {
-  background: rgba(255,255,255,0.1);
-  color: @textMuted;
+  background: rgba(255,255,255,0.5);
+  color: @textMain;
   border: 1px solid @borderGlow;
   border-radius: 6px;
   padding: 8px 10px;
@@ -3163,12 +3163,12 @@ h3 {
     align-items: center;
     gap: 8px;
     margin-bottom: 16px;
-    label { color: #e9d5ff; font-size: 13px; }
+    label { color: #5a4a3a; font-size: 13px; }
     select {
       flex: 1;
-      background: rgba(255,255,255,0.1);
-      color: white;
-      border: 1px solid rgba(168, 85, 247, 0.4);
+      background: rgba(255,255,255,0.5);
+      color: #2a1a0a;
+      border: 1px solid rgba(184, 134, 11, 0.4);
       border-radius: 6px;
       padding: 6px 8px;
       font-size: 13px;
@@ -3185,7 +3185,7 @@ h3 {
 .trade-col {
   flex: 1;
   h4 {
-    color: #c084fc;
+    color: #8b6914;
     font-size: 12px;
     margin: 0 0 8px;
     text-transform: uppercase;
@@ -3194,7 +3194,7 @@ h3 {
 }
 
 .trade-arrow {
-  color: #a855f7;
+  color: #d4a853;
   font-size: 24px;
   padding-top: 24px;
   flex-shrink: 0;
@@ -3212,14 +3212,14 @@ h3 {
 .trade-deed-item {
   padding: 4px 8px;
   font-size: 11px;
-  color: #d1d5db;
-  background: rgba(255,255,255,0.05);
+  color: #2a1a0a;
+  background: rgba(255,255,255,0.3);
   border-radius: 4px;
   cursor: pointer;
-  &:hover { background: rgba(255,255,255,0.1); }
+  &:hover { background: rgba(255,255,255,0.5); }
   &.selected {
-    background: rgba(168, 85, 247, 0.3);
-    color: #e9d5ff;
+    background: rgba(184, 134, 11, 0.3);
+    color: #2a1a0a;
     font-weight: bold;
   }
 }
@@ -3235,12 +3235,12 @@ h3 {
   display: flex;
   align-items: center;
   gap: 4px;
-  label { color: #fbbf24; font-size: 13px; font-weight: bold; }
+  label { color: #8b6914; font-size: 13px; font-weight: bold; }
   input {
     flex: 1;
-    background: rgba(255,255,255,0.1);
-    color: white;
-    border: 1px solid rgba(168, 85, 247, 0.3);
+    background: rgba(255,255,255,0.5);
+    color: #2a1a0a;
+    border: 1px solid rgba(184, 134, 11, 0.3);
     border-radius: 4px;
     padding: 4px 8px;
     font-size: 12px;
@@ -3251,12 +3251,12 @@ h3 {
 .trade-item {
   padding: 4px 8px;
   font-size: 12px;
-  color: #e9d5ff;
-  background: rgba(168, 85, 247, 0.15);
+  color: #2a1a0a;
+  background: rgba(184, 134, 11, 0.15);
   border-radius: 4px;
   margin-bottom: 3px;
-  &.money { color: #fbbf24; font-weight: bold; }
-  &.empty { color: #6b7280; font-style: italic; }
+  &.money { color: #8b6914; font-weight: bold; }
+  &.empty { color: #8a7a6a; font-style: italic; }
 }
 
 .trade-buttons {

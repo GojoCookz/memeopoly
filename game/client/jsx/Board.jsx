@@ -100,8 +100,80 @@ export default class Board extends React.Component {
     constructor(props) {
         super(props);
         this.state = {
-            dragOverrides: {} // playerId -> {x, y} for manually dragged tokens
+            dragOverrides: {}, // playerId -> {x, y} for manually dragged tokens
+            boardScale: 1,
+            boardOffsetX: 0,
+            boardOffsetY: 0,
+            animatingPositions: {}, // playerId -> current animated position
         };
+        this.boardRef = React.createRef();
+        this.containerRef = React.createRef();
+        this.animationTimers = {};
+    }
+
+    componentDidMount() {
+        this.updateBoardScale();
+        this.resizeObserver = new ResizeObserver(() => this.updateBoardScale());
+        if (this.containerRef.current) this.resizeObserver.observe(this.containerRef.current);
+        window.addEventListener('resize', this.updateBoardScale);
+    }
+
+    componentDidUpdate() {
+        if (this.boardRef.current) {
+            const boardRect = this.boardRef.current.getBoundingClientRect();
+            const newScale = boardRect.width / BOARD_SIZE;
+            if (Math.abs(newScale - this.state.boardScale) > 0.01) {
+                this.updateBoardScale();
+            }
+        }
+    }
+
+    componentWillUnmount() {
+        if (this.resizeObserver) this.resizeObserver.disconnect();
+        window.removeEventListener('resize', this.updateBoardScale);
+    }
+
+    animateMove = (playerId, from, to) => {
+        if (this.animationTimers[playerId]) clearTimeout(this.animationTimers[playerId]);
+        const steps = [];
+        if (to >= from) {
+            for (let i = from + 1; i <= to; i++) steps.push(i % 40);
+        } else {
+            for (let i = from + 1; i <= to + 40; i++) steps.push(i % 40);
+        }
+        if (steps.length === 0) return;
+        let stepIndex = 0;
+        const doStep = () => {
+            this.setState(prev => ({
+                animatingPositions: {...prev.animatingPositions, [playerId]: steps[stepIndex]}
+            }));
+            stepIndex++;
+            if (stepIndex < steps.length) {
+                this.animationTimers[playerId] = setTimeout(doStep, 200);
+            } else {
+                this.animationTimers[playerId] = setTimeout(() => {
+                    this.setState(prev => {
+                        const ap = {...prev.animatingPositions};
+                        delete ap[playerId];
+                        return {animatingPositions: ap};
+                    });
+                }, 250);
+            }
+        };
+        doStep();
+    }
+
+    updateBoardScale = () => {
+        if (this.boardRef.current && this.containerRef.current) {
+            const boardRect = this.boardRef.current.getBoundingClientRect();
+            const containerRect = this.containerRef.current.getBoundingClientRect();
+            const scale = boardRect.width / BOARD_SIZE;
+            this.setState({
+                boardScale: scale,
+                boardOffsetX: boardRect.left - containerRect.left,
+                boardOffsetY: boardRect.top - containerRect.top,
+            });
+        }
     }
 
     clearDragOverride = (playerId) => {
@@ -196,25 +268,24 @@ export default class Board extends React.Component {
                 if (!positionCounts[pos]) positionCounts[pos] = [];
                 positionCounts[pos].push(p.id);
             });
-            return (<div className="board-container">
+            const {boardScale, boardOffsetX, boardOffsetY} = this.state;
+            return (<div className="board-container" ref={this.containerRef}>
                 {players.map(p => {
                         let x, y;
                         if (dragging && p.id === draggedPlayer) {
-                            // Currently being dragged
                             x = dragging.style.top;
                             y = dragging.style.left;
                         } else if (this.state.dragOverrides[p.id] && p.position == null) {
-                            // Manual drag override, no server position
                             x = this.state.dragOverrides[p.id].x + 'px';
                             y = this.state.dragOverrides[p.id].y + 'px';
                         } else {
-                            // Auto-position from board position
-                            const pos = p.position != null ? p.position : 0;
+                            const animPos = this.state.animatingPositions[p.id];
+                            const pos = animPos != null ? animPos : (p.position != null ? p.position : 0);
                             const playersAtPos = positionCounts[pos] || [p.id];
                             const indexAtPos = playersAtPos.indexOf(p.id);
                             const coords = getTokenPosition(pos, indexAtPos);
-                            x = coords.x + 'px';
-                            y = coords.y + 'px';
+                            x = Math.round(coords.x * boardScale + boardOffsetY) + 'px';
+                            y = Math.round(coords.y * boardScale + boardOffsetX) + 'px';
                         }
                         const isBeingDragged = dragging && p.id === draggedPlayer;
                         return <div key={p.id}
@@ -245,7 +316,7 @@ export default class Board extends React.Component {
                         <FontAwesomeIcon icon={faQuestion}/>
                     </div>
                 </div>
-                <div className="board">
+                <div className="board" ref={this.boardRef}>
                     <Go/>
                     <Street position="1" boardPos="bottom" game={game}/>
                     <Community position="2" boardPos="bottom"/>

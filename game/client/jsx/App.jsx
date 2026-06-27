@@ -249,9 +249,11 @@ export default class App extends React.Component {
             if (data.passedGo) {
                 soundManager.play('go');
             }
-            // Clear drag override so token animates to calculated board position
             if (this.boardRef) {
                 this.boardRef.clearDragOverride(data.playerId);
+                if (data.from != null && data.to != null) {
+                    this.boardRef.animateMove(data.playerId, data.from, data.to);
+                }
             }
         } else if (data.type === 'jailed') {
             soundManager.play('jail');

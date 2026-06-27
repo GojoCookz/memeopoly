@@ -838,12 +838,10 @@ h3 {
     font-size: 18px !important;
     background-color: @bgPanel;
     color: @textMain;
-    position: fixed;
-    z-index: 100;
-    top: 50px;
-    left: calc(50% - 150px);
+    position: relative;
+    z-index: 10;
     transform: none !important;
-    box-shadow: 0 0 30px rgba(56, 189, 248, 0.15), 0px 8px 32px 12px rgba(0, 0, 0, 0.61);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 40px rgba(184, 134, 11, 0.15);
     border: 1px solid @borderGlow;
     writing-mode: unset !important;
 
@@ -3933,4 +3931,17 @@ h3 {
   border-color: @accentCyan;
   font-weight: bold;
   font-size: 16px;
+}
+
+.tile-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(139, 119, 80, 0.5);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

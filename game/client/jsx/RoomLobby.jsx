@@ -27,8 +27,8 @@ export default class RoomLobby extends React.Component {
     }
 
     createRoom = () => {
-        const name = this.state.newRoomName.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
-        if (!name) return;
+        let name = this.state.newRoomName.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
+        if (!name) name = 'room-' + Math.random().toString(36).slice(2, 8);
         gameService.joinRoom(name, this.state.turnTimer);
     }
 

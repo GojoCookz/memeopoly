@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {gameService} from "./services/GameService";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {faFaucet, faTimesCircle, faLightbulb} from "@fortawesome/free-solid-svg-icons";
@@ -33,33 +34,27 @@ export default class Utility extends React.Component {
         }
 
         const mortgageClass = utility.mortgaged ? " mortgaged":"";
-        return (
-            <div className={"utility grid-area-"+this.props.position+" board-card " + this.props.boardPos + " " + (opened ? "opened" : "")+mortgageClass}
-                 onClick={() => this.setState({opened: true})}>
 
+        const cardContent = (
+            <div className={"utility board-card" + (opened ? " opened" : "") + " grid-area-" + this.props.position + " " + this.props.boardPos + mortgageClass}
+                 onClick={() => { if (!opened) this.setState({opened: true}); }}>
                 {opened && <a className="close" onClick={(e) => {
                     this.setState({opened: false});
                     e.stopPropagation();
                 }}><FontAwesomeIcon icon={faTimesCircle}/></a>}
-
                 <div className="title">{utility.title}</div>
                 <div className="icon body">
-
                     {utility.type === 'water' && <FontAwesomeIcon icon={faFaucet}/>}
                     {utility.type === 'electricity' && <FontAwesomeIcon icon={faLightbulb}/>}
                 </div>
                 {opened && <div className="body">
                     {utility.description}
-
-                    <Mortgage property={utility} isOwner={owner}  game={this.props.game} type="utilities"/>
-
-
+                    <Mortgage property={utility} isOwner={owner} game={this.props.game} type="utilities"/>
                     <div>
                         <hr/>
                         Owned by: {gameService.getPlayerFromId(utility.owner).name}
                     </div>
-
-                    {opened && canSend && <div className='send-street'>
+                    {canSend && <div className='send-street'>
                         <hr/>
                         Send to:
                         <select value={this.state.sendTo} onChange={(e) => this.setState({sendTo: e.target.value})}>
@@ -69,9 +64,33 @@ export default class Utility extends React.Component {
                         &nbsp;
                         <button onClick={this.sendUtility}>Send !</button>
                     </div>}
-
                 </div>}
                 <div className="price">${utility.price}</div>
-            </div>);
+            </div>
+        );
+
+        if (opened) {
+            return (
+                <React.Fragment>
+                    <div className={"utility board-card grid-area-" + this.props.position + " " + this.props.boardPos + mortgageClass}
+                         onClick={() => this.setState({opened: true})}>
+                        <div className="title">{utility.title}</div>
+                        <div className="icon body">
+                            {utility.type === 'water' && <FontAwesomeIcon icon={faFaucet}/>}
+                            {utility.type === 'electricity' && <FontAwesomeIcon icon={faLightbulb}/>}
+                        </div>
+                        <div className="price">${utility.price}</div>
+                    </div>
+                    {ReactDOM.createPortal(
+                        <div className="tile-detail-overlay" onClick={(e) => { if (e.target === e.currentTarget) this.setState({opened: false}); }}>
+                            {cardContent}
+                        </div>,
+                        document.body
+                    )}
+                </React.Fragment>
+            );
+        }
+
+        return cardContent;
     }
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactDOM from 'react-dom';
 import {FontAwesomeIcon} from '@fortawesome/react-fontawesome'
 import {faHome, faHotel, faTimesCircle} from "@fortawesome/free-solid-svg-icons";
 import {gameService} from "./services/GameService";
@@ -62,10 +63,10 @@ export default class Street extends React.Component {
 
         const mortgageClass = street.mortgaged ? " mortgaged":"";
 
-        return (
+        const cardContent = (
             <div
-                className={"street board-card grid-area-" + this.props.position + " " + this.props.boardPos + " " + (opened ? "opened" : "")+mortgageClass}
-                onClick={() => this.setState({opened: true})}>
+                className={"street board-card" + (opened ? " opened" : "") + " grid-area-" + this.props.position + " " + this.props.boardPos + mortgageClass}
+                onClick={() => { if (!opened) this.setState({opened: true}); }}>
                 {opened && <a className="close" onClick={(e) => {
                     this.setState({opened: false});
                     e.stopPropagation();
@@ -115,6 +116,27 @@ export default class Street extends React.Component {
                 </div>
                 <div className="price">${street.price}</div>
             </div>
-        )
+        );
+
+        if (opened) {
+            return (
+                <React.Fragment>
+                    <div className={"street board-card grid-area-" + this.props.position + " " + this.props.boardPos + mortgageClass}
+                         onClick={() => this.setState({opened: true})}>
+                        <div className="color" style={{backgroundColor: street.color}}>{houses}</div>
+                        <div className="title">{street.title}</div>
+                        <div className="price">${street.price}</div>
+                    </div>
+                    {ReactDOM.createPortal(
+                        <div className="tile-detail-overlay" onClick={(e) => { if (e.target === e.currentTarget) this.setState({opened: false}); }}>
+                            {cardContent}
+                        </div>,
+                        document.body
+                    )}
+                </React.Fragment>
+            );
+        }
+
+        return cardContent;
     }
 }
